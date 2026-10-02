@@ -29,7 +29,12 @@ import com.example.acameet.R
 
 @Composable
 fun RegisterScreen(
-    onRegisterClick: () -> Unit = {},
+    onRegisterClick: (
+        nombre: String,
+        correo: String,
+        contrasena: String,
+        confirmarContrasena: String
+    ) -> Unit = { _, _, _, _ -> },
     onLoginClick: () -> Unit = {}
 ) {
 
@@ -79,6 +84,7 @@ fun RegisterScreen(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Text(
                     text = "Aca",
                     color = Color.White,
@@ -115,10 +121,12 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            // Nombre
+            // Nombre completo
             OutlinedTextField(
                 value = nombre,
-                onValueChange = { nombre = it },
+                onValueChange = {
+                    nombre = it
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Nombre completo")
@@ -136,10 +144,12 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Correo
+            // Correo electrónico
             OutlinedTextField(
                 value = correo,
-                onValueChange = { correo = it },
+                onValueChange = {
+                    correo = it
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Correo electrónico")
@@ -163,7 +173,9 @@ fun RegisterScreen(
             // Contraseña
             OutlinedTextField(
                 value = contrasena,
-                onValueChange = { contrasena = it },
+                onValueChange = {
+                    contrasena = it
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Contraseña")
@@ -182,19 +194,21 @@ fun RegisterScreen(
                     ) {
                         Icon(
                             imageVector =
-                                if (mostrarContrasena)
+                                if (mostrarContrasena) {
                                     Icons.Default.Visibility
-                                else
-                                    Icons.Default.VisibilityOff,
+                                } else {
+                                    Icons.Default.VisibilityOff
+                                },
                             contentDescription = "Mostrar contraseña"
                         )
                     }
                 },
                 visualTransformation =
-                    if (mostrarContrasena)
+                    if (mostrarContrasena) {
                         VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    } else {
+                        PasswordVisualTransformation()
+                    },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password
                 ),
@@ -208,7 +222,9 @@ fun RegisterScreen(
             // Confirmar contraseña
             OutlinedTextField(
                 value = confirmarContrasena,
-                onValueChange = { confirmarContrasena = it },
+                onValueChange = {
+                    confirmarContrasena = it
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Confirmar contraseña")
@@ -227,19 +243,21 @@ fun RegisterScreen(
                     ) {
                         Icon(
                             imageVector =
-                                if (mostrarConfirmacion)
+                                if (mostrarConfirmacion) {
                                     Icons.Default.Visibility
-                                else
-                                    Icons.Default.VisibilityOff,
+                                } else {
+                                    Icons.Default.VisibilityOff
+                                },
                             contentDescription = "Mostrar contraseña"
                         )
                     }
                 },
                 visualTransformation =
-                    if (mostrarConfirmacion)
+                    if (mostrarConfirmacion) {
                         VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    } else {
+                        PasswordVisualTransformation()
+                    },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password
                 ),
@@ -252,7 +270,14 @@ fun RegisterScreen(
 
             // Botón Crear cuenta
             Button(
-                onClick = onRegisterClick,
+                onClick = {
+                    onRegisterClick(
+                        nombre,
+                        correo,
+                        contrasena,
+                        confirmarContrasena
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
@@ -261,6 +286,7 @@ fun RegisterScreen(
                 ),
                 shape = RoundedCornerShape(14.dp)
             ) {
+
                 Text(
                     text = "Crear cuenta",
                     color = Color.White,
@@ -275,6 +301,7 @@ fun RegisterScreen(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Text(
                     text = "¿Ya tienes una cuenta?",
                     color = Color(0xFF9BA8B4),
@@ -284,6 +311,7 @@ fun RegisterScreen(
                 TextButton(
                     onClick = onLoginClick
                 ) {
+
                     Text(
                         text = "Iniciar sesión",
                         color = Color(0xFF0798F2),

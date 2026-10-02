@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import com.example.acameet.ui.screens.LoginScreen
 import com.example.acameet.SplashScreen
 import kotlinx.coroutines.delay
+import com.example.acameet.ui.screens.RegisterScreen
 
 @Composable
 fun AppNavigation() {
@@ -27,10 +28,21 @@ fun AppNavigation() {
         "login" -> {
             LoginScreen(
                 onLoginClick = {
-                    // Luego conectaremos con Inicio
+                    // Más adelante llevará a Inicio
                 },
                 onRegisterClick = {
-                    // Luego conectaremos con Crear cuenta
+                    pantallaActual = "register"
+                }
+            )
+        }
+
+        "register" -> {
+            RegisterScreen(
+                onRegisterClick = {
+                    // Más adelante guardará el usuario con Room
+                },
+                onLoginClick = {
+                    pantallaActual = "login"
                 }
             )
         }

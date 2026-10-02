@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.acameet.navigation.AppNavigation
 import com.example.acameet.ui.theme.AcaMeetTheme
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
 
@@ -31,7 +41,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AcaMeetTheme {
-                SplashScreen()
+                AppNavigation()
             }
         }
     }
@@ -40,13 +50,27 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SplashScreen() {
 
-    val background = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF020B12),
-            Color(0xFF03141F),
-            Color(0xFF001D32)
+        var progreso by remember {
+            mutableFloatStateOf(0f)
+        }
+
+        val progresoAnimado by animateFloatAsState(
+            targetValue = progreso,
+            animationSpec = tween(durationMillis = 3000),
+            label = "progresoSplash"
         )
-    )
+
+        LaunchedEffect(Unit) {
+            progreso = 1f
+        }
+
+        val background = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF020B12),
+                Color(0xFF03141F),
+                Color(0xFF001D32)
+            )
+        )
 
     Box(
         modifier = Modifier
@@ -61,24 +85,19 @@ fun SplashScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
 
-            // Logo temporal
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(
-                        color = Color(0xFF009DFF),
-                        shape = RoundedCornerShape(24.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "🎓",
-                    fontSize = 55.sp
-                )
-            }
+            // Logo AcaMeet
+            Image(
+                painter = painterResource(
+                    id = R.drawable.acameet_logo
+                ),
+                contentDescription = "Logo de AcaMeet",
+                modifier = Modifier.size(150.dp),
+                contentScale = ContentScale.Fit
+            )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(-45.dp))
 
+            // Nombre AcaMeet
             Text(
                 text = buildAnnotatedString {
 
@@ -105,6 +124,7 @@ fun SplashScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Descripción
             Text(
                 text = "Gestión de eventos académicos",
                 color = Color(0xFFB8C5CE),
@@ -113,8 +133,9 @@ fun SplashScreen() {
 
             Spacer(modifier = Modifier.height(55.dp))
 
+            // Barra de carga
             LinearProgressIndicator(
-                progress = { 0.65f },
+                progress = { progresoAnimado },
                 modifier = Modifier
                     .width(140.dp)
                     .height(5.dp),

@@ -48,6 +48,9 @@ dependencies {
     // Navegación entre pantallas
     implementation("androidx.navigation:navigation-compose:2.9.5")
 
+    // Iconos para AcaMeet
+    implementation("androidx.compose.material:material-icons-extended")
+
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

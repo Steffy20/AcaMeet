@@ -1,5 +1,6 @@
 package com.example.acameet.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,20 +16,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import com.example.acameet.R
 
 @Composable
 fun LoginScreen(
-    onLoginClick: () -> Unit = {},
+    onLoginClick: (
+        correo: String,
+        contrasena: String
+    ) -> Unit = { _, _ -> },
     onRegisterClick: () -> Unit = {}
 ) {
 
@@ -68,13 +71,13 @@ fun LoginScreen(
                 contentScale = ContentScale.Fit
             )
 
-
-            Spacer(modifier = Modifier.height(-35.dp))
+            Spacer(modifier = Modifier.height((-35).dp))
 
             // Nombre AcaMeet
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Text(
                     text = "Aca",
                     color = Color.White,
@@ -122,7 +125,9 @@ fun LoginScreen(
             // Correo
             OutlinedTextField(
                 value = correo,
-                onValueChange = { correo = it },
+                onValueChange = {
+                    correo = it
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Correo electrónico")
@@ -156,7 +161,9 @@ fun LoginScreen(
             // Contraseña
             OutlinedTextField(
                 value = contrasena,
-                onValueChange = { contrasena = it },
+                onValueChange = {
+                    contrasena = it
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Contraseña")
@@ -175,19 +182,21 @@ fun LoginScreen(
                     ) {
                         Icon(
                             imageVector =
-                                if (mostrarContrasena)
+                                if (mostrarContrasena) {
                                     Icons.Default.Visibility
-                                else
-                                    Icons.Default.VisibilityOff,
+                                } else {
+                                    Icons.Default.VisibilityOff
+                                },
                             contentDescription = "Mostrar contraseña"
                         )
                     }
                 },
                 visualTransformation =
-                    if (mostrarContrasena)
+                    if (mostrarContrasena) {
                         VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    } else {
+                        PasswordVisualTransformation()
+                    },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password
@@ -212,7 +221,12 @@ fun LoginScreen(
 
             // Botón iniciar sesión
             Button(
-                onClick = onLoginClick,
+                onClick = {
+                    onLoginClick(
+                        correo,
+                        contrasena
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(55.dp),
@@ -221,6 +235,7 @@ fun LoginScreen(
                 ),
                 shape = RoundedCornerShape(14.dp)
             ) {
+
                 Text(
                     text = "Iniciar sesión",
                     color = Color.White,
@@ -235,6 +250,7 @@ fun LoginScreen(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Text(
                     text = "¿No tienes una cuenta?",
                     color = Color(0xFF9BA8B4),
@@ -244,6 +260,7 @@ fun LoginScreen(
                 TextButton(
                     onClick = onRegisterClick
                 ) {
+
                     Text(
                         text = "Crear cuenta",
                         color = Color(0xFF0798F2),

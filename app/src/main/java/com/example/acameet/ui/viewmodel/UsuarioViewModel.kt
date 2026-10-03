@@ -65,4 +65,38 @@ class UsuarioViewModel(
             }
         }
     }
+    fun iniciarSesion(
+        correo: String,
+        contrasena: String,
+        onResultado: (Boolean, String) -> Unit
+    ) {
+
+        if (correo.isBlank() || contrasena.isBlank()) {
+            onResultado(
+                false,
+                "Ingresa tu correo y contraseña"
+            )
+            return
+        }
+
+        viewModelScope.launch {
+
+            val usuario = repository.iniciarSesion(
+                correo = correo,
+                contrasena = contrasena
+            )
+
+            if (usuario != null) {
+                onResultado(
+                    true,
+                    "Inicio de sesión correcto"
+                )
+            } else {
+                onResultado(
+                    false,
+                    "Correo o contraseña incorrectos"
+                )
+            }
+        }
+    }
 }

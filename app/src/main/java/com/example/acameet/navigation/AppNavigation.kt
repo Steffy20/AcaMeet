@@ -5,13 +5,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.acameet.SplashScreen
 import com.example.acameet.data.local.database.AcaMeetDatabase
+import com.example.acameet.data.repository.CategoriaRepository
 import com.example.acameet.data.repository.UsuarioRepository
+import com.example.acameet.ui.screens.CategoriaScreen
+import com.example.acameet.ui.screens.HomeScreen
 import com.example.acameet.ui.screens.LoginScreen
 import com.example.acameet.ui.screens.RegisterScreen
+import com.example.acameet.ui.viewmodel.CategoriaViewModel
+import com.example.acameet.ui.viewmodel.CategoriaViewModelFactory
 import com.example.acameet.ui.viewmodel.UsuarioViewModel
 import com.example.acameet.ui.viewmodel.UsuarioViewModelFactory
 import kotlinx.coroutines.delay
-import com.example.acameet.ui.screens.HomeScreen
 
 @Composable
 fun AppNavigation() {
@@ -23,14 +27,24 @@ fun AppNavigation() {
         AcaMeetDatabase.getDatabase(context)
     }
 
-    // Repository
-    val repository = remember {
+    // Repository de usuarios
+    val usuarioRepository = remember {
         UsuarioRepository(database.usuarioDao())
     }
 
-    // ViewModel
+    // ViewModel de usuarios
     val usuarioViewModel: UsuarioViewModel = viewModel(
-        factory = UsuarioViewModelFactory(repository)
+        factory = UsuarioViewModelFactory(usuarioRepository)
+    )
+
+    // Repository de categorías
+    val categoriaRepository = remember {
+        CategoriaRepository(database.categoriaDao())
+    }
+
+    // ViewModel de categorías
+    val categoriaViewModel: CategoriaViewModel = viewModel(
+        factory = CategoriaViewModelFactory(categoriaRepository)
     )
 
     var pantallaActual by remember {
@@ -55,7 +69,7 @@ fun AppNavigation() {
                     usuarioViewModel.iniciarSesion(
                         correo = correo,
                         contrasena = contrasena
-                    ) { exitoso, mensaje ->
+                    ) { exitoso, _ ->
 
                         if (exitoso) {
                             pantallaActual = "inicio"
@@ -70,17 +84,18 @@ fun AppNavigation() {
 
         "register" -> {
             RegisterScreen(
-                onRegisterClick = { nombre,
-                                    correo,
-                                    contrasena,
-                                    confirmarContrasena ->
+                onRegisterClick = {
+                        nombre,
+                        correo,
+                        contrasena,
+                        confirmarContrasena ->
 
                     usuarioViewModel.registrarUsuario(
                         nombre = nombre,
                         correo = correo,
                         contrasena = contrasena,
                         confirmarContrasena = confirmarContrasena
-                    ) { exitoso, mensaje ->
+                    ) { exitoso, _ ->
 
                         if (exitoso) {
                             pantallaActual = "login"
@@ -92,8 +107,19 @@ fun AppNavigation() {
                 }
             )
         }
+
         "inicio" -> {
-            HomeScreen()
+            HomeScreen(
+                onCategoriasClick = {
+                    pantallaActual = "categorias"
+                }
+            )
+        }
+
+        "categorias" -> {
+            CategoriaScreen(
+                viewModel = categoriaViewModel
+            )
         }
     }
 }

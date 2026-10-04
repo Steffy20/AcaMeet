@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onCategoriasClick: () -> Unit = {}
+) {
 
     val background = Brush.verticalGradient(
         colors = listOf(
@@ -62,7 +64,7 @@ fun HomeScreen() {
 
                 NavigationBarItem(
                     selected = false,
-                    onClick = {},
+                    onClick = onCategoriasClick,
                     icon = {
                         Icon(
                             imageVector = Icons.Default.Category,

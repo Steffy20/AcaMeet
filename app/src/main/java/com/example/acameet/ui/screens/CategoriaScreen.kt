@@ -42,6 +42,14 @@ fun CategoriaScreen(
         mutableStateOf<Categoria?>(null)
     }
 
+    var mensaje by remember {
+        mutableStateOf("")
+    }
+
+    var mostrarMensaje by remember {
+        mutableStateOf(false)
+    }
+
     val background = Brush.verticalGradient(
         colors = listOf(
             Color(0xFF020B12),
@@ -215,6 +223,32 @@ fun CategoriaScreen(
             }
         }
     }
+    // Mensaje de resultado
+    if (mostrarMensaje) {
+        AlertDialog(
+            onDismissRequest = {
+                mostrarMensaje = false
+            },
+            title = {
+                Text("AcaMeet")
+            },
+            text = {
+                Text(mensaje)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarMensaje = false
+                    }
+                ) {
+                    Text(
+                        text = "Aceptar",
+                        color = Color(0xFF0798F2)
+                    )
+                }
+            }
+        )
+    }
 
     // Diálogo para agregar categoría
     if (mostrarDialogoAgregar) {
@@ -228,12 +262,15 @@ fun CategoriaScreen(
             },
             onConfirmar = { nombre ->
 
-                viewModel.registrarCategoria(nombre) {
-                        exitoso, _ ->
+                viewModel.registrarCategoria(nombre) { exitoso, mensajeResultado ->
+
+                    mensaje = mensajeResultado
+                    mostrarMensaje = true
 
                     if (exitoso) {
                         mostrarDialogoAgregar = false
                     }
+
                 }
             }
         )
@@ -254,7 +291,10 @@ fun CategoriaScreen(
                 viewModel.actualizarCategoria(
                     categoria = categoria,
                     nuevoNombre = nuevoNombre
-                ) { exitoso, _ ->
+                ) { exitoso, mensajeResultado ->
+
+                    mensaje = mensajeResultado
+                    mostrarMensaje = true
 
                     if (exitoso) {
                         categoriaEditar = null
@@ -293,9 +333,14 @@ fun CategoriaScreen(
 
                         viewModel.eliminarCategoria(
                             categoria
-                        ) { _, _ ->
+                        ) { exitoso, mensajeResultado ->
 
-                            categoriaEliminar = null
+                            mensaje = mensajeResultado
+                            mostrarMensaje = true
+
+                            if (exitoso) {
+                                categoriaEliminar = null
+                            }
                         }
                     }
                 ) {

@@ -20,10 +20,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.acameet.data.local.entity.Categoria
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
+import com.example.acameet.ui.components.BottomNavigationBar
 
 @Composable
 fun CategoriaScreen(
-    viewModel: CategoriaViewModel
+    viewModel: CategoriaViewModel,
+    onInicioClick: () -> Unit = {}
 ) {
 
     val categorias by viewModel.categorias.collectAsState()
@@ -50,6 +52,12 @@ fun CategoriaScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
+        bottomBar = {
+            BottomNavigationBar(
+                pantallaActual = "categorias",
+                onInicioClick = onInicioClick
+            )
+        },
 
         floatingActionButton = {
 

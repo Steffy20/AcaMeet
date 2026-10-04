@@ -118,7 +118,10 @@ fun AppNavigation() {
 
         "categorias" -> {
             CategoriaScreen(
-                viewModel = categoriaViewModel
+                viewModel = categoriaViewModel,
+                onInicioClick = {
+                    pantallaActual = "inicio"
+                }
             )
         }
     }

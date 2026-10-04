@@ -4,17 +4,24 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.acameet.data.local.dao.CategoriaDao
 import com.example.acameet.data.local.dao.UsuarioDao
+import com.example.acameet.data.local.entity.Categoria
 import com.example.acameet.data.local.entity.Usuario
 
 @Database(
-    entities = [Usuario::class],
-    version = 1,
+    entities = [
+        Usuario::class,
+        Categoria::class
+    ],
+    version = 2,
     exportSchema = false
 )
 abstract class AcaMeetDatabase : RoomDatabase() {
 
     abstract fun usuarioDao(): UsuarioDao
+
+    abstract fun categoriaDao(): CategoriaDao
 
     companion object {
 
@@ -29,7 +36,9 @@ abstract class AcaMeetDatabase : RoomDatabase() {
                     context.applicationContext,
                     AcaMeetDatabase::class.java,
                     "acameet_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
 
                 INSTANCE = instance
 

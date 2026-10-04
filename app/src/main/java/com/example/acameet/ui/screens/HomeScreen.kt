@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.acameet.ui.components.BottomNavigationBar
 
 @Composable
 fun HomeScreen(
@@ -36,86 +37,10 @@ fun HomeScreen(
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-
-            NavigationBar(
-                containerColor = Color(0xFF06141E)
-            ) {
-
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Inicio"
-                        )
-                    },
-                    label = {
-                        Text("Inicio")
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFF0798F2),
-                        selectedTextColor = Color(0xFF0798F2),
-                        indicatorColor = Color(0xFF102A3A),
-                        unselectedIconColor = Color(0xFF9BA8B4),
-                        unselectedTextColor = Color(0xFF9BA8B4)
-                    )
-                )
-
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onCategoriasClick,
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Category,
-                            contentDescription = "Categorías"
-                        )
-                    },
-                    label = {
-                        Text("Categorías")
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        unselectedIconColor = Color(0xFF9BA8B4),
-                        unselectedTextColor = Color(0xFF9BA8B4)
-                    )
-                )
-
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Lugares"
-                        )
-                    },
-                    label = {
-                        Text("Lugares")
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        unselectedIconColor = Color(0xFF9BA8B4),
-                        unselectedTextColor = Color(0xFF9BA8B4)
-                    )
-                )
-
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Configuración"
-                        )
-                    },
-                    label = {
-                        Text("Configuración")
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        unselectedIconColor = Color(0xFF9BA8B4),
-                        unselectedTextColor = Color(0xFF9BA8B4)
-                    )
-                )
-            }
+            BottomNavigationBar(
+                pantallaActual = "inicio",
+                onCategoriasClick = onCategoriasClick
+            )
         },
 
         floatingActionButton = {

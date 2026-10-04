@@ -294,8 +294,15 @@ fun CategoriaScreen(
             onDismissRequest = {
                 mostrarMensaje = false
             },
+            containerColor = Color(0xFF0A1C28),
+            titleContentColor = Color.White,
+            textContentColor = Color(0xFF9BA8B4),
+
             title = {
-                Text("AcaMeet")
+                Text(
+                    text = "AcaMeet",
+                    fontWeight = FontWeight.Bold
+                )
             },
             text = {
                 Text(mensaje)
@@ -376,10 +383,14 @@ fun CategoriaScreen(
             onDismissRequest = {
                 categoriaEliminar = null
             },
+            containerColor = Color(0xFF0A1C28),
+            titleContentColor = Color.White,
+            textContentColor = Color(0xFF9BA8B4),
 
             title = {
                 Text(
-                    text = "Eliminar categoría"
+                    text = "Eliminar categoría",
+                    fontWeight = FontWeight.Bold
                 )
             },
 
@@ -425,7 +436,10 @@ fun CategoriaScreen(
                     }
                 ) {
 
-                    Text("Cancelar")
+                    Text(
+                        text = "Cancelar",
+                        color = Color(0xFF9BA8B4)
+                    )
                 }
             }
         )

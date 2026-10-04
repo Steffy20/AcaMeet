@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import com.example.acameet.data.local.entity.Categoria
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
 import com.example.acameet.ui.components.BottomNavigationBar
+import androidx.compose.material.icons.filled.Category
+
 
 @Composable
 fun CategoriaScreen(
@@ -133,12 +135,50 @@ fun CategoriaScreen(
                         contentAlignment = Alignment.Center
                     ) {
 
-                        Text(
-                            text = "No hay categorías registradas",
-                            color = Color(0xFF9BA8B4),
-                            fontSize = 15.sp
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+
+                            Surface(
+                                modifier = Modifier.size(75.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFF0A1C28)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Category,
+                                        contentDescription = null,
+                                        tint = Color(0xFF0798F2),
+                                        modifier = Modifier.size(38.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(
+                                modifier = Modifier.height(18.dp)
+                            )
+
+                            Text(
+                                text = "No hay categorías registradas",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+
+                            Spacer(
+                                modifier = Modifier.height(7.dp)
+                            )
+
+                            Text(
+                                text = "Presiona + para crear tu primera categoría",
+                                color = Color(0xFF9BA8B4),
+                                fontSize = 13.sp
+                            )
+                        }
                     }
+
 
                 } else {
 
@@ -157,10 +197,9 @@ fun CategoriaScreen(
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(18.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor =
-                                        Color(0xFF0A1C28)
+                                    containerColor = Color(0xFF0A1C28)
                                 )
                             ) {
 
@@ -168,51 +207,77 @@ fun CategoriaScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(16.dp),
-                                    verticalAlignment =
-                                        Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
 
-                                    Text(
-                                        text = categoria.nombre,
-                                        modifier =
-                                            Modifier.weight(1f),
-                                        color = Color.White,
-                                        fontSize = 17.sp,
-                                        fontWeight =
-                                            FontWeight.Medium
+                                    // Icono de categoría
+                                    Surface(
+                                        modifier = Modifier.size(50.dp),
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = Color(0xFF102E42)
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Category,
+                                                contentDescription = null,
+                                                tint = Color(0xFF0798F2),
+                                                modifier = Modifier.size(27.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(
+                                        modifier = Modifier.width(14.dp)
                                     )
 
-                                    IconButton(
-                                        onClick = {
-                                            categoriaEditar =
-                                                categoria
-                                        }
+                                    // Información
+                                    Column(
+                                        modifier = Modifier.weight(1f)
                                     ) {
 
-                                        Icon(
-                                            imageVector =
-                                                Icons.Default.Edit,
-                                            contentDescription =
-                                                "Editar",
-                                            tint =
-                                                Color(0xFF0798F2)
+                                        Text(
+                                            text = categoria.nombre,
+                                            color = Color.White,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+
+                                        Spacer(
+                                            modifier = Modifier.height(4.dp)
+                                        )
+
+                                        Text(
+                                            text = "Categoría de evento",
+                                            color = Color(0xFF9BA8B4),
+                                            fontSize = 13.sp
                                         )
                                     }
 
+                                    // Editar
                                     IconButton(
                                         onClick = {
-                                            categoriaEliminar =
-                                                categoria
+                                            categoriaEditar = categoria
                                         }
                                     ) {
-
                                         Icon(
-                                            imageVector =
-                                                Icons.Default.Delete,
-                                            contentDescription =
-                                                "Eliminar",
-                                            tint =
-                                                Color(0xFFE57373)
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Editar categoría",
+                                            tint = Color(0xFF0798F2)
+                                        )
+                                    }
+
+                                    // Eliminar
+                                    IconButton(
+                                        onClick = {
+                                            categoriaEliminar = categoria
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Eliminar categoría",
+                                            tint = Color(0xFFE57373)
                                         )
                                     }
                                 }
@@ -383,6 +448,10 @@ private fun DialogoCategoria(
     AlertDialog(
         onDismissRequest = onDismiss,
 
+        containerColor = Color(0xFF0A1C28),
+        titleContentColor = Color.White,
+        textContentColor = Color(0xFF9BA8B4),
+
         title = {
             Text(titulo)
         },
@@ -394,10 +463,26 @@ private fun DialogoCategoria(
                 onValueChange = {
                     nombre = it
                 },
+                modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text("Nombre de la categoría")
                 },
-                singleLine = true
+                placeholder = {
+                    Text("Ej. Conferencia")
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Category,
+                        contentDescription = null
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF0798F2),
+                    focusedLabelColor = Color(0xFF0798F2),
+                    focusedLeadingIconColor = Color(0xFF0798F2)
+                )
             )
         },
 
@@ -422,7 +507,10 @@ private fun DialogoCategoria(
                 onClick = onDismiss
             ) {
 
-                Text("Cancelar")
+                Text(
+                    text = "Cancelar",
+                    color = Color(0xFF9BA8B4)
+                )
             }
         }
     )

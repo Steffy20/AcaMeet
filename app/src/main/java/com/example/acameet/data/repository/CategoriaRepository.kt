@@ -1,36 +1,20 @@
+
 package com.example.acameet.data.repository
 
-import com.example.acameet.data.local.dao.CategoriaDao
 import com.example.acameet.data.local.entity.Categoria
 import kotlinx.coroutines.flow.Flow
 
-class CategoriaRepository(
-    private val categoriaDao: CategoriaDao
-) {
+interface CategoriaRepository {
 
-    fun obtenerCategorias(): Flow<List<Categoria>> {
-        return categoriaDao.obtenerCategorias()
-    }
+    fun obtenerCategorias(): Flow<List<Categoria>>
 
-    suspend fun insertarCategoria(categoria: Categoria) {
-        categoriaDao.insertarCategoria(categoria)
-    }
+    suspend fun insertarCategoria(categoria: Categoria)
 
-    suspend fun obtenerCategoriaPorId(id: Int): Categoria? {
-        return categoriaDao.obtenerCategoriaPorId(id)
-    }
+    suspend fun obtenerCategoriaPorId(id: Int): Categoria?
 
-    suspend fun obtenerCategoriaPorNombre(
-        nombre: String
-    ): Categoria? {
-        return categoriaDao.obtenerCategoriaPorNombre(nombre)
-    }
+    suspend fun obtenerCategoriaPorNombre(nombre: String): Categoria?
 
-    suspend fun actualizarCategoria(categoria: Categoria) {
-        categoriaDao.actualizarCategoria(categoria)
-    }
+    suspend fun actualizarCategoria(categoria: Categoria)
 
-    suspend fun eliminarCategoria(categoria: Categoria) {
-        categoriaDao.eliminarCategoria(categoria)
-    }
+    suspend fun eliminarCategoria(categoria: Categoria)
 }

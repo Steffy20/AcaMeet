@@ -1,272 +1,114 @@
 package com.example.acameet.ui.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.acameet.R
+import com.example.acameet.ui.viewmodel.UsuarioViewModel
 
+// 1. COMPOSABLE STATEFUL (Contenedor con estado)
 @Composable
-fun LoginScreen(
-    onLoginClick: (
-        correo: String,
-        contrasena: String
-    ) -> Unit = { _, _ -> },
-    onRegisterClick: () -> Unit = {}
+fun LoginRoute(
+    viewModel: UsuarioViewModel,
+    onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var mensajeError by remember { mutableStateOf<String?>(null) }
 
-    var correo by remember { mutableStateOf("") }
-    var contrasena by remember { mutableStateOf("") }
-    var mostrarContrasena by remember { mutableStateOf(false) }
-
-    val background = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF020B12),
-            Color(0xFF03141F),
-            Color(0xFF001D32)
-        )
+    LoginContent(
+        email = email,
+        password = password,
+        mensajeError = mensajeError,
+        onEmailChange = {
+            email = it
+            mensajeError = null
+        },
+        onPasswordChange = {
+            password = it
+            mensajeError = null
+        },
+        onLoginClick = {
+            viewModel.iniciarSesion(email, password) { exito, mensaje ->
+                if (exito) {
+                    onLoginSuccess()
+                } else {
+                    mensajeError = mensaje
+                }
+            }
+        },
+        onNavigateToRegister = onNavigateToRegister,
+        modifier = modifier
     )
+}
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(background)
-            .padding(horizontal = 28.dp)
-    ) {
-
+// 2. COMPOSABLE STATELESS (Vista pura sin ViewModel)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LoginContent(
+    email: String,
+    password: String,
+    mensajeError: String?,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLoginClick: () -> Unit,
+    onNavigateToRegister: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Iniciar Sesión") }) }
+    ) { innerPadding ->
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
-                .padding(top = 80.dp),
+                .padding(innerPadding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // Logo
-            Image(
-                painter = painterResource(
-                    id = R.drawable.acameet_logo
-                ),
-                contentDescription = "Logo de AcaMeet",
-                modifier = Modifier.size(120.dp),
-                contentScale = ContentScale.Fit
+            OutlinedTextField(
+                value = email,
+                onValueChange = onEmailChange,
+                label = { Text("Correo electrónico") },
+                singleLine = true,
+                isError = mensajeError != null,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = onPasswordChange,
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                isError = mensajeError != null,
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height((-35).dp))
-
-            // Nombre AcaMeet
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
+            if (mensajeError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Aca",
-                    color = Color.White,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "Meet",
-                    color = Color(0xFF0798F2),
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold
+                    text = mensajeError,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Gestión de eventos académicos",
-                color = Color(0xFF9BA8B4),
-                fontSize = 14.sp
-            )
-
-            Spacer(modifier = Modifier.height(50.dp))
-
-            Text(
-                text = "Iniciar sesión",
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Ingresa tus datos para continuar",
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF9BA8B4),
-                fontSize = 15.sp
-            )
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // Correo
-            OutlinedTextField(
-                value = correo,
-                onValueChange = {
-                    correo = it
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text("Correo electrónico")
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Email,
-                        contentDescription = "Correo"
-                    )
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFF0798F2),
-                    unfocusedBorderColor = Color(0xFF345064),
-                    focusedLabelColor = Color(0xFF0798F2),
-                    unfocusedLabelColor = Color(0xFF9BA8B4),
-                    focusedLeadingIconColor = Color(0xFF0798F2),
-                    unfocusedLeadingIconColor = Color(0xFF9BA8B4),
-                    cursorColor = Color(0xFF0798F2)
-                ),
-                shape = RoundedCornerShape(14.dp)
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Contraseña
-            OutlinedTextField(
-                value = contrasena,
-                onValueChange = {
-                    contrasena = it
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text("Contraseña")
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Contraseña"
-                    )
-                },
-                trailingIcon = {
-                    IconButton(
-                        onClick = {
-                            mostrarContrasena = !mostrarContrasena
-                        }
-                    ) {
-                        Icon(
-                            imageVector =
-                                if (mostrarContrasena) {
-                                    Icons.Default.Visibility
-                                } else {
-                                    Icons.Default.VisibilityOff
-                                },
-                            contentDescription = "Mostrar contraseña"
-                        )
-                    }
-                },
-                visualTransformation =
-                    if (mostrarContrasena) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFF0798F2),
-                    unfocusedBorderColor = Color(0xFF345064),
-                    focusedLabelColor = Color(0xFF0798F2),
-                    unfocusedLabelColor = Color(0xFF9BA8B4),
-                    focusedLeadingIconColor = Color(0xFF0798F2),
-                    unfocusedLeadingIconColor = Color(0xFF9BA8B4),
-                    focusedTrailingIconColor = Color(0xFF0798F2),
-                    unfocusedTrailingIconColor = Color(0xFF9BA8B4),
-                    cursorColor = Color(0xFF0798F2)
-                ),
-                shape = RoundedCornerShape(14.dp)
-            )
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            // Botón iniciar sesión
+            Spacer(modifier = Modifier.height(24.dp))
             Button(
-                onClick = {
-                    onLoginClick(
-                        correo,
-                        contrasena
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(55.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0798F2)
-                ),
-                shape = RoundedCornerShape(14.dp)
+                onClick = onLoginClick,
+                modifier = Modifier.fillMaxWidth()
             ) {
-
-                Text(
-                    text = "Iniciar sesión",
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("Iniciar Sesión")
             }
-
-            Spacer(modifier = Modifier.height(26.dp))
-
-            // Crear cuenta
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Text(
-                    text = "¿No tienes una cuenta?",
-                    color = Color(0xFF9BA8B4),
-                    fontSize = 14.sp
-                )
-
-                TextButton(
-                    onClick = onRegisterClick
-                ) {
-
-                    Text(
-                        text = "Crear cuenta",
-                        color = Color(0xFF0798F2),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            Spacer(modifier = Modifier.height(12.dp))
+            TextButton(onClick = onNavigateToRegister) {
+                Text("¿No tienes cuenta? Regístrate aquí")
             }
         }
     }

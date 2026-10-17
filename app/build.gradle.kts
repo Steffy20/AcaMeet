@@ -65,4 +65,13 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    dependencies {
+
+        // DataStore Preferences para guardar configuraciones
+        implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+        // Ciclo de vida para Compose (necesario para collectAsStateWithLifecycle)
+        implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
+    }
 }

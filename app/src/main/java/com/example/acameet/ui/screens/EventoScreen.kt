@@ -3,6 +3,7 @@ package com.example.acameet.ui.screens
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -32,6 +34,7 @@ import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.local.entity.Lugar
 import com.example.acameet.ui.EventoUiState
 import com.example.acameet.ui.EventoViewModel
+import com.example.acameet.ui.ImagenEventoUtils
 import com.example.acameet.ui.components.BottomNavigationBar
 import com.example.acameet.ui.viewmodel.CategoriaUiState
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
@@ -43,17 +46,6 @@ import java.util.Locale
 private val AzulEv = Color(0xFF0798F2)
 private val RojoEv = Color(0xFFE57373)
 
-@Composable
-private fun ColorErrorEv(): Color {
-    val colores = MaterialTheme.colorScheme
-    return if (colores.background == Color(0xFF020B12)) {
-        RojoEv
-    } else {
-        colores.error
-    }
-}
-
-// COMPATIBILIDAD CON LA NAVEGACIÓN ACTUAL
 @Composable
 fun EventoScreen(
     viewModel: EventoViewModel,
@@ -77,7 +69,6 @@ fun EventoScreen(
     )
 }
 
-// ROUTE: MANEJA EL ESTADO Y EL VIEWMODEL
 @Composable
 fun EventoRoute(
     viewModel: EventoViewModel,
@@ -91,10 +82,8 @@ fun EventoRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val busqueda by viewModel.busqueda.collectAsStateWithLifecycle()
-    val categoriaState by
-    categoriaViewModel.uiState.collectAsStateWithLifecycle()
-    val lugares by
-    lugarViewModel.lugares.collectAsStateWithLifecycle()
+    val categoriaState by categoriaViewModel.uiState.collectAsStateWithLifecycle()
+    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
 
     val categorias = when (val estado = categoriaState) {
         is CategoriaUiState.Success -> estado.categorias
@@ -104,36 +93,24 @@ fun EventoRoute(
     var pantalla by remember(pantallaInicial, eventoIdInicial) {
         mutableStateOf(pantallaInicial)
     }
-
-    var seleccionado by remember(pantallaInicial, eventoIdInicial) {
+    var seleccionado by remember {
         mutableStateOf<Evento?>(null)
     }
-
     var eliminar by remember {
         mutableStateOf<Evento?>(null)
     }
-
     var mensaje by remember {
         mutableStateOf<String?>(null)
     }
-
-    var categoriaFiltro by remember {
+    var filtroCategoria by remember {
         mutableStateOf<Int?>(null)
     }
 
     LaunchedEffect(eventoIdInicial) {
         if (eventoIdInicial != null) {
             try {
-                val evento =
-                    viewModel.obtenerEventoParaPantalla(eventoIdInicial)
-
-                if (evento != null) {
-                    seleccionado = evento
-                    pantalla = "detalle"
-                } else {
-                    pantalla = "lista"
-                    mensaje = "El evento ya no está disponible"
-                }
+                seleccionado = viewModel.obtenerEventoParaPantalla(eventoIdInicial)
+                pantalla = if (seleccionado != null) "detalle" else "lista"
             } catch (e: Exception) {
                 pantalla = "lista"
                 mensaje = "No se pudo cargar el evento"
@@ -144,7 +121,6 @@ fun EventoRoute(
     LaunchedEffect(viewModel) {
         viewModel.mensajes.collect { resultado ->
             mensaje = resultado.texto
-
             if (resultado.exitoso) {
                 pantalla = "lista"
                 seleccionado = null
@@ -162,30 +138,24 @@ fun EventoRoute(
         seleccionado = seleccionado,
         eliminar = eliminar,
         mensaje = mensaje,
-        categoriaFiltro = categoriaFiltro,
+        categoriaFiltro = filtroCategoria,
         onPantallaChange = { pantalla = it },
         onSeleccionadoChange = { seleccionado = it },
         onEliminarChange = { eliminar = it },
         onMensajeChange = { mensaje = it },
-        onCategoriaFiltroChange = { categoriaFiltro = it },
+        onCategoriaFiltroChange = { filtroCategoria = it },
         onBusquedaChange = viewModel::actualizarBusqueda,
-        onRegistrarLugar = { nombre, onResultado ->
+        onRegistrarLugar = { nombre, resultado ->
             lugarViewModel.registrarLugar(
                 Lugar(nombre = nombre),
-                onResultado
+                resultado
             )
         },
         onGuardarEvento = {
-                eventoInicial,
-                nombre,
-                descripcion,
-                fecha,
-                hora,
-                categoriaId,
-                lugarId,
-                imagenUrl ->
+                inicial, nombre, descripcion, fecha,
+                hora, categoriaId, lugarId ->
 
-            if (eventoInicial == null) {
+            if (inicial == null) {
                 viewModel.registrarEvento(
                     nombre = nombre,
                     descripcion = descripcion,
@@ -193,18 +163,18 @@ fun EventoRoute(
                     hora = hora,
                     categoriaId = categoriaId,
                     lugarId = lugarId,
-                    imagenUrl = imagenUrl
+                    imagenUrl = ""
                 )
             } else {
                 viewModel.actualizarEvento(
-                    evento = eventoInicial,
+                    evento = inicial,
                     nombre = nombre,
                     descripcion = descripcion,
                     fecha = fecha,
                     hora = hora,
                     categoriaId = categoriaId,
                     lugarId = lugarId,
-                    imagenUrl = imagenUrl
+                    imagenUrl = ""
                 )
             }
         },
@@ -215,7 +185,6 @@ fun EventoRoute(
     )
 }
 
-// CONTENT: INTERFAZ SIN DEPENDENCIA DEL VIEWMODEL
 @Composable
 fun EventoContent(
     uiState: EventoUiState,
@@ -233,19 +202,9 @@ fun EventoContent(
     onMensajeChange: (String?) -> Unit,
     onCategoriaFiltroChange: (Int?) -> Unit,
     onBusquedaChange: (String) -> Unit,
-    onRegistrarLugar: (
-        String,
-        (Boolean, String) -> Unit
-    ) -> Unit,
+    onRegistrarLugar: (String, (Boolean, String) -> Unit) -> Unit,
     onGuardarEvento: (
-        Evento?,
-        String,
-        String,
-        String,
-        String,
-        Int,
-        Int,
-        String
+        Evento?, String, String, String, String, Int, Int
     ) -> Unit,
     onEliminarEvento: (Evento) -> Unit,
     onInicioClick: () -> Unit = {},
@@ -253,11 +212,10 @@ fun EventoContent(
     onConfiguracionClick: () -> Unit = {}
 ) {
     val colores = MaterialTheme.colorScheme
-    val esOscuro = colores.background == Color(0xFF020B12)
-    val rojo = ColorErrorEv()
+    val oscuro = colores.background == Color(0xFF020B12)
 
     val fondo = Brush.verticalGradient(
-        if (esOscuro) {
+        if (oscuro) {
             listOf(
                 Color(0xFF020B12),
                 Color(0xFF03141F),
@@ -292,10 +250,7 @@ fun EventoContent(
                     containerColor = AzulEv,
                     contentColor = Color.White
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Crear evento"
-                    )
+                    Icon(Icons.Default.Add, "Crear evento")
                 }
             }
         }
@@ -306,76 +261,62 @@ fun EventoContent(
                 .fillMaxSize()
                 .background(fondo)
                 .padding(padding)
-                .padding(horizontal = 22.dp)
+                .padding(horizontal = 20.dp)
         ) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             when (pantalla) {
-
                 "lista" -> {
                     Text(
-                        text = "Eventos",
+                        "Eventos",
                         color = colores.onBackground,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
-
                     Text(
-                        text = "Descubre y participa en eventos académicos",
+                        "Descubre y participa en eventos académicos",
                         color = colores.onSurfaceVariant,
                         fontSize = 14.sp
                     )
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = busqueda,
                         onValueChange = onBusquedaChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = {
-                            Text("Buscar eventos...")
-                        },
+                        placeholder = { Text("Buscar eventos...") },
                         leadingIcon = {
                             Icon(Icons.Default.Search, null)
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AzulEv,
-                            unfocusedBorderColor = colores.outline,
-                            focusedTextColor = colores.onBackground,
-                            unfocusedTextColor = colores.onBackground,
-                            cursorColor = AzulEv
-                        )
+                        shape = RoundedCornerShape(14.dp)
                     )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
 
-                    FiltroCategoriaEv(
+                    SelectorCategoriaFiltroEv(
                         categorias = categorias,
                         seleccion = categoriaFiltro,
                         onSeleccionar = onCategoriaFiltroChange
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
 
                     when (val estado = uiState) {
-
                         is EventoUiState.Loading -> {
                             Box(
-                                modifier = Modifier.fillMaxSize(),
+                                Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(
-                                    color = AzulEv
-                                )
+                                CircularProgressIndicator(color = AzulEv)
                             }
                         }
 
                         is EventoUiState.Error -> {
                             Text(
-                                text = estado.mensaje,
-                                color = rojo
+                                estado.mensaje,
+                                color = RojoEv
                             )
                         }
 
@@ -387,27 +328,20 @@ fun EventoContent(
 
                             if (eventos.isEmpty()) {
                                 Box(
-                                    modifier = Modifier.fillMaxSize(),
+                                    Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "No hay eventos para mostrar",
+                                        "No hay eventos para mostrar",
                                         color = colores.onSurfaceVariant
                                     )
                                 }
                             } else {
                                 LazyColumn(
-                                    verticalArrangement =
-                                        Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(
-                                        bottom = 90.dp
-                                    )
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(bottom = 90.dp)
                                 ) {
-                                    items(
-                                        items = eventos,
-                                        key = { it.id }
-                                    ) { evento ->
-
+                                    items(eventos, key = { it.id }) { evento ->
                                         val categoria = categorias.find {
                                             it.id == evento.categoriaId
                                         }?.nombre ?: "Evento"
@@ -433,167 +367,134 @@ fun EventoContent(
                 }
 
                 "detalle" -> {
-                    seleccionado?.let { evento ->
-
+                    if (seleccionado != null) {
                         EncabezadoEv(
-                            titulo = "Detalle del evento",
-                            onVolver = {
-                                onPantallaChange("lista")
-                            }
+                            "Detalle del evento",
+                            onVolver = { onPantallaChange("lista") }
                         )
+
+                        val categoria = categorias.find {
+                            it.id == seleccionado.categoriaId
+                        }?.nombre ?: "Evento"
+
+                        val lugar = lugares.find {
+                            it.id == seleccionado.lugarId
+                        }?.nombre ?: "Lugar no disponible"
 
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement =
-                                Arrangement.spacedBy(16.dp)
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Card(
+                                shape = RoundedCornerShape(18.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = colores.surface
-                                ),
-                                shape = RoundedCornerShape(18.dp)
+                                )
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(20.dp),
-                                    verticalArrangement =
-                                        Arrangement.spacedBy(12.dp)
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     ImagenEventoEv(
-                                        imagenUrl = evento.imagenUrl,
-                                        nombre = evento.nombre,
+                                        nombre = seleccionado.nombre,
+                                        categoria = categoria,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(190.dp)
                                     )
 
                                     Text(
-                                        text = evento.nombre,
-                                        color = colores.onSurface,
+                                        seleccionado.nombre,
                                         fontSize = 23.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = colores.onSurface
                                     )
 
                                     Text(
-                                        text = evento.descripcion,
+                                        seleccionado.descripcion,
                                         color = colores.onSurfaceVariant
                                     )
 
-                                    HorizontalDivider(
-                                        color = colores.outline
-                                    )
+                                    HorizontalDivider()
 
-                                    DatoEv(
-                                        etiqueta = "Categoría",
-                                        valor = categorias.find {
-                                            it.id == evento.categoriaId
-                                        }?.nombre ?: "Categoría no disponible"
-                                    )
-
-                                    DatoEv("Fecha", evento.fecha)
-                                    DatoEv("Hora", evento.hora)
-
-                                    DatoEv(
-                                        etiqueta = "Lugar",
-                                        valor = lugares.find {
-                                            it.id == evento.lugarId
-                                        }?.nombre ?: "Lugar no disponible"
-                                    )
+                                    DatoEv("Categoría", categoria)
+                                    DatoEv("Fecha", seleccionado.fecha)
+                                    DatoEv("Hora", seleccionado.hora)
+                                    DatoEv("Lugar", lugar)
                                 }
                             }
 
                             Button(
-                                onClick = {
-                                    onPantallaChange("editar")
-                                },
+                                onClick = { onPantallaChange("editar") },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = AzulEv
                                 )
                             ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = null
-                                )
+                                Icon(Icons.Default.Edit, null)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Editar evento")
                             }
 
                             OutlinedButton(
                                 onClick = {
-                                    onEliminarChange(evento)
+                                    onEliminarChange(seleccionado)
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = rojo
+                                    null,
+                                    tint = RojoEv
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Eliminar evento",
-                                    color = rojo
-                                )
+                                Text("Eliminar evento", color = RojoEv)
                             }
                         }
                     }
                 }
 
                 "crear", "editar" -> {
-                    val eventoInicial =
+                    val inicial =
                         if (pantalla == "editar") seleccionado else null
 
                     EncabezadoEv(
-                        titulo = if (eventoInicial == null) {
+                        titulo = if (inicial == null) {
                             "Crear evento"
                         } else {
                             "Editar evento"
                         },
                         onVolver = {
                             onPantallaChange(
-                                if (eventoInicial == null) {
-                                    "lista"
-                                } else {
-                                    "detalle"
-                                }
+                                if (inicial == null) "lista" else "detalle"
                             )
                         }
                     )
 
                     FormularioEv(
-                        eventoInicial = eventoInicial,
+                        eventoInicial = inicial,
                         categorias = categorias,
                         lugares = lugares,
                         onRegistrarLugar = onRegistrarLugar,
                         onCancelar = {
                             onPantallaChange(
-                                if (eventoInicial == null) {
-                                    "lista"
-                                } else {
-                                    "detalle"
-                                }
+                                if (inicial == null) "lista" else "detalle"
                             )
                         },
                         onGuardar = {
-                                nombre,
-                                descripcion,
-                                fecha,
-                                hora,
-                                categoriaId,
-                                lugarId,
-                                imagenUrl ->
+                                nombre, descripcion, fecha, hora,
+                                categoriaId, lugarId ->
 
                             onGuardarEvento(
-                                eventoInicial,
+                                inicial,
                                 nombre,
                                 descripcion,
                                 fecha,
                                 hora,
                                 categoriaId,
-                                lugarId,
-                                imagenUrl
+                                lugarId
                             )
                         }
                     )
@@ -604,32 +505,21 @@ fun EventoContent(
 
     eliminar?.let { evento ->
         AlertDialog(
-            onDismissRequest = {
-                onEliminarChange(null)
-            },
-            containerColor = colores.surface,
-            title = {
-                Text("Eliminar evento")
-            },
+            onDismissRequest = { onEliminarChange(null) },
+            title = { Text("Eliminar evento") },
             text = {
-                Text(
-                    "¿Deseas eliminar el evento \"${evento.nombre}\"?"
-                )
+                Text("¿Deseas eliminar el evento \"${evento.nombre}\"?")
             },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        onEliminarEvento(evento)
-                    }
+                    onClick = { onEliminarEvento(evento) }
                 ) {
-                    Text("Eliminar", color = rojo)
+                    Text("Eliminar", color = RojoEv)
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        onEliminarChange(null)
-                    }
+                    onClick = { onEliminarChange(null) }
                 ) {
                     Text("Cancelar")
                 }
@@ -639,21 +529,12 @@ fun EventoContent(
 
     mensaje?.let { texto ->
         AlertDialog(
-            onDismissRequest = {
-                onMensajeChange(null)
-            },
-            containerColor = colores.surface,
-            title = {
-                Text("AcaMeet")
-            },
-            text = {
-                Text(texto)
-            },
+            onDismissRequest = { onMensajeChange(null) },
+            title = { Text("AcaMeet") },
+            text = { Text(texto) },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        onMensajeChange(null)
-                    }
+                    onClick = { onMensajeChange(null) }
                 ) {
                     Text("Aceptar", color = AzulEv)
                 }
@@ -662,58 +543,46 @@ fun EventoContent(
     }
 }
 
-// IMAGEN DE INTERNET CON COIL
+// IMAGEN AUTOMÁTICA SEGÚN EL TEMA
 @Composable
 private fun ImagenEventoEv(
-    imagenUrl: String,
     nombre: String,
+    categoria: String,
     modifier: Modifier = Modifier
 ) {
-    val colores = MaterialTheme.colorScheme
+    val url = remember(nombre, categoria) {
+        ImagenEventoUtils.obtenerImagen(nombre, categoria)
+    }
+
+    var error by remember(url) {
+        mutableStateOf(false)
+    }
 
     Box(
         modifier = modifier
-            .background(
-                colores.surfaceVariant,
-                RoundedCornerShape(12.dp)
-            ),
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF08283B)),
         contentAlignment = Alignment.Center
     ) {
-        if (imagenUrl.isNotBlank()) {
-            var fallo by remember(imagenUrl) {
-                mutableStateOf(false)
-            }
-
-            if (!fallo) {
-                AsyncImage(
-                    model = imagenUrl,
-                    contentDescription = "Imagen de $nombre",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onError = {
-                        fallo = true
-                    }
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.BrokenImage,
-                    contentDescription = "Imagen no disponible",
-                    tint = AzulEv,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-        } else {
+        if (error) {
             Icon(
-                imageVector = Icons.Default.Event,
-                contentDescription = "Evento sin imagen",
+                Icons.Default.Event,
+                contentDescription = "Imagen no disponible",
                 tint = AzulEv,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(42.dp)
+            )
+        } else {
+            AsyncImage(
+                model = url,
+                contentDescription = "Imagen de $nombre",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                onError = { error = true }
             )
         }
     }
 }
 
-// TARJETA DE EVENTO CON IMAGEN
 @Composable
 private fun TarjetaEventoEv(
     evento: Evento,
@@ -731,206 +600,139 @@ private fun TarjetaEventoEv(
         colors = CardDefaults.cardColors(
             containerColor = colores.surface
         ),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             AzulEv.copy(alpha = 0.16f)
         )
     ) {
         Row(
-            modifier = Modifier.padding(9.dp),
+            modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             ImagenEventoEv(
-                imagenUrl = evento.imagenUrl,
                 nombre = evento.nombre,
-                modifier = Modifier.size(
-                    width = 96.dp,
-                    height = 96.dp
-                )
+                categoria = categoria,
+                modifier = Modifier.size(96.dp)
             )
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Surface(
-                    color = AzulEv.copy(alpha = 0.16f),
-                    shape = RoundedCornerShape(7.dp)
-                ) {
-                    Text(
-                        text = categoria,
-                        color = AzulEv,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(
-                            horizontal = 7.dp,
-                            vertical = 3.dp
-                        )
-                    )
-                }
+                Text(
+                    categoria,
+                    color = AzulEv,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
 
                 Text(
-                    text = evento.nombre,
+                    evento.nombre,
                     color = colores.onSurface,
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        tint = colores.onSurfaceVariant,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        evento.fecha,
-                        color = colores.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = colores.onSurfaceVariant,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        evento.hora,
-                        color = colores.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = colores.onSurfaceVariant,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        lugar,
-                        color = colores.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                TextoIconoEv(Icons.Default.CalendarToday, evento.fecha)
+                TextoIconoEv(Icons.Default.Schedule, evento.hora)
+                TextoIconoEv(Icons.Default.LocationOn, lugar)
             }
 
             Icon(
                 Icons.Default.ChevronRight,
-                contentDescription = "Ver detalle",
-                tint = colores.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
+                "Ver detalle",
+                tint = colores.onSurfaceVariant
             )
         }
     }
 }
 
-// ENCABEZADO
+@Composable
+private fun TextoIconoEv(
+    icono: androidx.compose.ui.graphics.vector.ImageVector,
+    texto: String
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icono,
+            null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            texto,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 private fun EncabezadoEv(
     titulo: String,
     onVolver: () -> Unit
 ) {
-    val colores = MaterialTheme.colorScheme
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onVolver) {
             Icon(
                 Icons.Default.ArrowBack,
-                contentDescription = "Volver",
+                "Volver",
                 tint = AzulEv
             )
         }
 
         Text(
-            text = titulo,
-            color = colores.onBackground,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
+            titulo,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
         )
     }
-
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(14.dp))
 }
 
-// DATOS DEL EVENTO
 @Composable
-private fun DatoEv(
-    etiqueta: String,
-    valor: String
-) {
-    val colores = MaterialTheme.colorScheme
-
+private fun DatoEv(etiqueta: String, valor: String) {
     Column {
+        Text(etiqueta, color = AzulEv, fontSize = 13.sp)
         Text(
-            text = etiqueta,
-            color = AzulEv,
-            fontSize = 13.sp
-        )
-
-        Text(
-            text = valor,
-            color = colores.onSurface
+            valor,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
-// FILTRO DE CATEGORÍAS
 @Composable
-private fun FiltroCategoriaEv(
+private fun SelectorCategoriaFiltroEv(
     categorias: List<Categoria>,
     seleccion: Int?,
     onSeleccionar: (Int?) -> Unit
 ) {
-    var expandido by remember {
-        mutableStateOf(false)
-    }
+    var expandido by remember { mutableStateOf(false) }
 
     Box {
-        OutlinedButton(
-            onClick = {
-                expandido = true
-            }
-        ) {
+        OutlinedButton(onClick = { expandido = true }) {
             Text(
-                text = categorias.find {
+                categorias.find {
                     it.id == seleccion
                 }?.nombre ?: "Todas las categorías",
                 color = AzulEv
             )
-
-            Spacer(Modifier.width(8.dp))
-
-            Icon(
-                Icons.Default.ArrowDropDown,
-                contentDescription = null,
-                tint = AzulEv
-            )
+            Icon(Icons.Default.ArrowDropDown, null, tint = AzulEv)
         }
 
         DropdownMenu(
             expanded = expandido,
-            onDismissRequest = {
-                expandido = false
-            }
+            onDismissRequest = { expandido = false }
         ) {
             DropdownMenuItem(
-                text = {
-                    Text("Todas las categorías")
-                },
+                text = { Text("Todas las categorías") },
                 onClick = {
                     onSeleccionar(null)
                     expandido = false
@@ -939,9 +741,7 @@ private fun FiltroCategoriaEv(
 
             categorias.forEach { categoria ->
                 DropdownMenuItem(
-                    text = {
-                        Text(categoria.nombre)
-                    },
+                    text = { Text(categoria.nombre) },
                     onClick = {
                         onSeleccionar(categoria.id)
                         expandido = false
@@ -952,7 +752,6 @@ private fun FiltroCategoriaEv(
     }
 }
 
-// SELECTOR DE CATEGORÍAS Y LUGARES
 @Composable
 private fun <T> SelectorEv(
     etiqueta: String,
@@ -962,176 +761,108 @@ private fun <T> SelectorEv(
     obtenerNombre: (T) -> String,
     onSeleccionar: (Int) -> Unit
 ) {
-    val colores = MaterialTheme.colorScheme
+    var expandido by remember { mutableStateOf(false) }
 
-    var mostrarDialogo by remember {
-        mutableStateOf(false)
-    }
-
-    val nombreSeleccionado = opciones.find {
+    val nombre = opciones.find {
         obtenerId(it) == seleccionadoId
     }?.let(obtenerNombre) ?: "Seleccionar $etiqueta"
 
     Column {
         Text(
-            text = etiqueta,
+            etiqueta,
             color = AzulEv,
             fontWeight = FontWeight.Bold
         )
 
         Spacer(Modifier.height(6.dp))
 
-        OutlinedButton(
-            onClick = {
-                mostrarDialogo = true
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Text(
-                text = nombreSeleccionado,
-                modifier = Modifier.weight(1f),
-                color = colores.onBackground
-            )
+        Box {
+            OutlinedButton(
+                onClick = { expandido = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    nombre,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    null,
+                    tint = AzulEv
+                )
+            }
 
-            Icon(
-                Icons.Default.ArrowDropDown,
-                contentDescription = "Seleccionar $etiqueta",
-                tint = AzulEv
-            )
-        }
-    }
-
-    if (mostrarDialogo) {
-        AlertDialog(
-            onDismissRequest = {
-                mostrarDialogo = false
-            },
-            title = {
-                Text("Seleccionar $etiqueta")
-            },
-            text = {
-                if (opciones.isEmpty()) {
-                    Text("No hay registros disponibles")
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 320.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        opciones.forEach { opcion ->
-                            TextButton(
-                                onClick = {
-                                    onSeleccionar(obtenerId(opcion))
-                                    mostrarDialogo = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = obtenerNombre(opcion),
-                                    color = colores.onSurface,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+            DropdownMenu(
+                expanded = expandido,
+                onDismissRequest = { expandido = false }
+            ) {
+                opciones.forEach { opcion ->
+                    DropdownMenuItem(
+                        text = { Text(obtenerNombre(opcion)) },
+                        onClick = {
+                            onSeleccionar(obtenerId(opcion))
+                            expandido = false
                         }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogo = false
-                    }
-                ) {
-                    Text("Cerrar", color = AzulEv)
+                    )
                 }
             }
-        )
+        }
     }
 }
 
-// FORMULARIO PARA CREAR Y EDITAR EVENTOS
 @Composable
 private fun FormularioEv(
     eventoInicial: Evento?,
     categorias: List<Categoria>,
     lugares: List<Lugar>,
     onRegistrarLugar: (
-        String,
-        (Boolean, String) -> Unit
+        String, (Boolean, String) -> Unit
     ) -> Unit,
     onCancelar: () -> Unit,
     onGuardar: (
-        String,
-        String,
-        String,
-        String,
-        Int,
-        Int,
-        String
+        String, String, String, String, Int, Int
     ) -> Unit
 ) {
     val context = LocalContext.current
     val colores = MaterialTheme.colorScheme
-    val rojo = ColorErrorEv()
 
     var nombre by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.nombre ?: "")
     }
-
     var descripcion by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.descripcion ?: "")
     }
-
     var fecha by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.fecha ?: "")
     }
-
     var hora by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.hora ?: "")
     }
-
     var categoriaId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.categoriaId)
     }
-
     var lugarId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.lugarId)
     }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    var imagenUrl by remember(eventoInicial) {
-        mutableStateOf(eventoInicial?.imagenUrl ?: "")
-    }
-
-    var error by remember(eventoInicial) {
-        mutableStateOf<String?>(null)
-    }
-
-    var mostrarRegistrarLugar by remember {
+    var mostrarLugar by remember {
         mutableStateOf(false)
     }
-
     var nuevoLugar by remember {
         mutableStateOf("")
     }
-
     var guardandoLugar by remember {
         mutableStateOf(false)
     }
-
-    var mensajeLugar by remember {
+    var errorLugar by remember {
         mutableStateOf<String?>(null)
     }
 
-    val formato = remember {
-        SimpleDateFormat(
-            "yyyy-MM-dd",
-            Locale.US
-        ).apply {
-            isLenient = false
-        }
-    }
+    val categoriaNombre = categorias.find {
+        it.id == categoriaId
+    }?.nombre ?: ""
 
     Column(
         modifier = Modifier
@@ -1140,7 +871,7 @@ private fun FormularioEv(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = "Información general",
+            "Información del evento",
             color = AzulEv,
             fontWeight = FontWeight.Bold
         )
@@ -1151,16 +882,9 @@ private fun FormularioEv(
                 nombre = it
                 error = null
             },
-            label = {
-                Text("Título del evento *")
-            },
+            label = { Text("Título del evento *") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AzulEv,
-                focusedTextColor = colores.onBackground,
-                unfocusedTextColor = colores.onBackground
-            )
+            singleLine = true
         )
 
         OutlinedTextField(
@@ -1169,16 +893,9 @@ private fun FormularioEv(
                 descripcion = it
                 error = null
             },
-            label = {
-                Text("Descripción *")
-            },
+            label = { Text("Descripción *") },
             modifier = Modifier.fillMaxWidth(),
-            minLines = 3,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AzulEv,
-                focusedTextColor = colores.onBackground,
-                unfocusedTextColor = colores.onBackground
-            )
+            minLines = 3
         )
 
         SelectorEv(
@@ -1193,78 +910,42 @@ private fun FormularioEv(
             }
         )
 
-        // NUEVO CAMPO PARA IMÁGENES DE INTERNET
-        Text(
-            text = "Imagen del evento",
-            color = AzulEv,
-            fontWeight = FontWeight.Bold
-        )
-
-        OutlinedTextField(
-            value = imagenUrl,
-            onValueChange = {
-                imagenUrl = it
-                error = null
-            },
-            label = {
-                Text("URL de la imagen (opcional)")
-            },
-            placeholder = {
-                Text("https://ejemplo.com/imagen.jpg")
-            },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Image,
-                    contentDescription = null
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AzulEv,
-                focusedTextColor = colores.onBackground,
-                unfocusedTextColor = colores.onBackground
+        // VISTA PREVIA AUTOMÁTICA
+        if (nombre.isNotBlank() || categoriaNombre.isNotBlank()) {
+            Text(
+                "Imagen automática del evento",
+                color = AzulEv,
+                fontWeight = FontWeight.Bold
             )
-        )
 
-        Text(
-            text = "Pega un enlace HTTPS directo a una imagen.",
-            color = colores.onSurfaceVariant,
-            fontSize = 12.sp
-        )
-
-        if (imagenUrl.isNotBlank()) {
             ImagenEventoEv(
-                imagenUrl = imagenUrl.trim(),
-                nombre = nombre.ifBlank { "Vista previa" },
+                nombre = nombre,
+                categoria = categoriaNombre,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(170.dp)
+                    .height(160.dp)
+            )
+
+            Text(
+                "La imagen se selecciona automáticamente " +
+                        "según el título y la categoría.",
+                color = colores.onSurfaceVariant,
+                fontSize = 12.sp
             )
         }
 
         Text(
-            text = "Fecha y hora",
+            "Fecha y hora",
             color = AzulEv,
             fontWeight = FontWeight.Bold
         )
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = {
-                    val calendario = Calendar.getInstance()
+                    val cal = Calendar.getInstance()
 
-                    if (fecha.isNotBlank()) {
-                        try {
-                            calendario.time = formato.parse(fecha)!!
-                        } catch (e: Exception) {
-                            // Conservar fecha actual.
-                        }
-                    }
-
-                    val dialogo = DatePickerDialog(
+                    DatePickerDialog(
                         context,
                         { _, anio, mes, dia ->
                             fecha = String.format(
@@ -1274,46 +955,26 @@ private fun FormularioEv(
                                 mes + 1,
                                 dia
                             )
-                            error = null
                         },
-                        calendario.get(Calendar.YEAR),
-                        calendario.get(Calendar.MONTH),
-                        calendario.get(Calendar.DAY_OF_MONTH)
-                    )
-
-                    if (eventoInicial == null) {
-                        val hoy = Calendar.getInstance().apply {
-                            set(Calendar.HOUR_OF_DAY, 0)
-                            set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0)
-                            set(Calendar.MILLISECOND, 0)
-                        }
-                        dialogo.datePicker.minDate = hoy.timeInMillis
-                    }
-
-                    dialogo.show()
+                        cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH),
+                        cal.get(Calendar.DAY_OF_MONTH)
+                    ).show()
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(
-                    Icons.Default.Event,
-                    contentDescription = null,
-                    tint = AzulEv
-                )
-
+                Icon(Icons.Default.Event, null, tint = AzulEv)
                 Spacer(Modifier.width(4.dp))
-
                 Text(
-                    text = fecha.ifBlank { "Fecha" },
+                    fecha.ifBlank { "Fecha" },
                     fontSize = 12.sp,
-                    color = colores.onBackground
+                    color = colores.onSurface
                 )
             }
 
             OutlinedButton(
                 onClick = {
-                    val calendario = Calendar.getInstance()
-                    val partes = hora.split(":")
+                    val cal = Calendar.getInstance()
 
                     TimePickerDialog(
                         context,
@@ -1324,29 +985,20 @@ private fun FormularioEv(
                                 h,
                                 m
                             )
-                            error = null
                         },
-                        partes.getOrNull(0)?.toIntOrNull()
-                            ?: calendario.get(Calendar.HOUR_OF_DAY),
-                        partes.getOrNull(1)?.toIntOrNull()
-                            ?: calendario.get(Calendar.MINUTE),
+                        cal.get(Calendar.HOUR_OF_DAY),
+                        cal.get(Calendar.MINUTE),
                         true
                     ).show()
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(
-                    Icons.Default.Schedule,
-                    contentDescription = null,
-                    tint = AzulEv
-                )
-
+                Icon(Icons.Default.Schedule, null, tint = AzulEv)
                 Spacer(Modifier.width(4.dp))
-
                 Text(
-                    text = hora.ifBlank { "Hora" },
+                    hora.ifBlank { "Hora" },
                     fontSize = 12.sp,
-                    color = colores.onBackground
+                    color = colores.onSurface
                 )
             }
         }
@@ -1366,115 +1018,45 @@ private fun FormularioEv(
         TextButton(
             onClick = {
                 nuevoLugar = ""
-                mensajeLugar = null
-                mostrarRegistrarLugar = true
+                errorLugar = null
+                mostrarLugar = true
             }
         ) {
-            Icon(
-                Icons.Default.AddCircleOutline,
-                contentDescription = null,
-                tint = AzulEv
-            )
-
+            Icon(Icons.Default.AddCircleOutline, null)
             Spacer(Modifier.width(6.dp))
-
-            Text(
-                text = "+ Registrar nuevo lugar",
-                color = AzulEv
-            )
-        }
-
-        if (lugares.isEmpty()) {
-            Text(
-                text = "Todavía no hay lugares registrados. " +
-                        "Registra uno para continuar.",
-                color = colores.onSurfaceVariant,
-                fontSize = 12.sp
-            )
+            Text("Registrar nuevo lugar", color = AzulEv)
         }
 
         error?.let {
-            Text(
-                text = it,
-                color = rojo,
-                fontSize = 13.sp
-            )
+            Text(it, color = RojoEv)
         }
 
         Button(
             onClick = {
                 when {
-                    nombre.isBlank() || descripcion.isBlank() -> {
+                    nombre.isBlank() ||
+                            descripcion.isBlank() ->
                         error = "Completa el título y la descripción"
-                    }
 
-                    categoriaId == null ||
-                            categorias.none { it.id == categoriaId } -> {
-                        error = "Selecciona una categoría válida"
-                    }
+                    categoriaId == null ->
+                        error = "Selecciona una categoría"
 
-                    lugarId == null ||
-                            lugares.none { it.id == lugarId } -> {
-                        error = "Selecciona un lugar válido"
-                    }
+                    lugarId == null ->
+                        error = "Selecciona un lugar"
 
-                    fecha.isBlank() || hora.isBlank() -> {
+                    fecha.isBlank() ||
+                            hora.isBlank() ->
                         error = "Selecciona la fecha y la hora"
-                    }
-
-                    imagenUrl.isNotBlank() &&
-                            !imagenUrl.trim().startsWith(
-                                "https://",
-                                ignoreCase = true
-                            ) -> {
-                        error = "La imagen debe tener una URL HTTPS"
-                    }
 
                     else -> {
-                        val fechaParseada = try {
-                            formato.parse(fecha)
-                        } catch (e: Exception) {
-                            null
-                        }
-
-                        val partes = hora.split(":")
-                        val h = partes.getOrNull(0)?.toIntOrNull()
-                        val m = partes.getOrNull(1)?.toIntOrNull()
-
-                        if (
-                            fechaParseada == null ||
-                            h == null || h !in 0..23 ||
-                            m == null || m !in 0..59
-                        ) {
-                            error = "Fecha u hora no válida"
-                        } else {
-                            val fechaHora =
-                                Calendar.getInstance().apply {
-                                    time = fechaParseada
-                                    set(Calendar.HOUR_OF_DAY, h)
-                                    set(Calendar.MINUTE, m)
-                                    set(Calendar.SECOND, 0)
-                                    set(Calendar.MILLISECOND, 0)
-                                }
-
-                            if (
-                                eventoInicial == null &&
-                                fechaHora.timeInMillis <=
-                                System.currentTimeMillis()
-                            ) {
-                                error = "Selecciona una fecha y hora futuras"
-                            } else {
-                                onGuardar(
-                                    nombre.trim(),
-                                    descripcion.trim(),
-                                    fecha,
-                                    hora,
-                                    categoriaId!!,
-                                    lugarId!!,
-                                    imagenUrl.trim()
-                                )
-                            }
-                        }
+                        onGuardar(
+                            nombre.trim(),
+                            descripcion.trim(),
+                            fecha,
+                            hora,
+                            categoriaId!!,
+                            lugarId!!
+                        )
                     }
                 }
             },
@@ -1484,7 +1066,7 @@ private fun FormularioEv(
             )
         ) {
             Text(
-                text = if (eventoInicial == null) {
+                if (eventoInicial == null) {
                     "Crear evento"
                 } else {
                     "Guardar cambios"
@@ -1496,61 +1078,33 @@ private fun FormularioEv(
             onClick = onCancelar,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = "Cancelar",
-                color = colores.onSurfaceVariant
-            )
+            Text("Cancelar")
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
     }
 
-    // DIÁLOGO PARA REGISTRAR UN LUGAR NUEVO
-    if (mostrarRegistrarLugar) {
+    if (mostrarLugar) {
         AlertDialog(
             onDismissRequest = {
-                if (!guardandoLugar) {
-                    mostrarRegistrarLugar = false
-                }
+                if (!guardandoLugar) mostrarLugar = false
             },
-            containerColor = colores.surface,
-            title = {
-                Text("Registrar nuevo lugar")
-            },
+            title = { Text("Registrar nuevo lugar") },
             text = {
-                Column(
-                    verticalArrangement =
-                        Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Ingresa el nombre del lugar donde " +
-                                "se realizará el evento.",
-                        color = colores.onSurfaceVariant
-                    )
-
+                Column {
                     OutlinedTextField(
                         value = nuevoLugar,
                         onValueChange = {
                             nuevoLugar = it
-                            mensajeLugar = null
+                            errorLugar = null
                         },
-                        label = {
-                            Text("Nombre del lugar")
-                        },
+                        label = { Text("Nombre del lugar") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        enabled = !guardandoLugar,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AzulEv
-                        )
+                        enabled = !guardandoLugar
                     )
 
-                    mensajeLugar?.let {
-                        Text(
-                            text = it,
-                            color = rojo,
-                            fontSize = 13.sp
-                        )
+                    errorLugar?.let {
+                        Text(it, color = RojoEv)
                     }
                 }
             },
@@ -1558,38 +1112,32 @@ private fun FormularioEv(
                 TextButton(
                     enabled = !guardandoLugar,
                     onClick = {
-                        val nombreLimpio = nuevoLugar.trim()
+                        val limpio = nuevoLugar.trim()
 
                         when {
-                            nombreLimpio.isBlank() -> {
-                                mensajeLugar =
-                                    "Ingresa el nombre del lugar"
-                            }
+                            limpio.isBlank() ->
+                                errorLugar = "Ingresa el nombre"
 
                             lugares.any {
                                 it.nombre.equals(
-                                    nombreLimpio,
+                                    limpio,
                                     ignoreCase = true
                                 )
-                            } -> {
-                                mensajeLugar =
-                                    "Este lugar ya está registrado"
-                            }
+                            } ->
+                                errorLugar = "El lugar ya existe"
 
                             else -> {
                                 guardandoLugar = true
 
-                                onRegistrarLugar(nombreLimpio) {
-                                        exitoso, resultado ->
-
+                                onRegistrarLugar(limpio) {
+                                        exitoso, mensaje ->
                                     guardandoLugar = false
 
                                     if (exitoso) {
-                                        mostrarRegistrarLugar = false
+                                        mostrarLugar = false
                                         nuevoLugar = ""
-                                        error = null
                                     } else {
-                                        mensajeLugar = resultado
+                                        errorLugar = mensaje
                                     }
                                 }
                             }
@@ -1602,9 +1150,7 @@ private fun FormularioEv(
             dismissButton = {
                 TextButton(
                     enabled = !guardandoLugar,
-                    onClick = {
-                        mostrarRegistrarLugar = false
-                    }
+                    onClick = { mostrarLugar = false }
                 ) {
                     Text("Cancelar")
                 }

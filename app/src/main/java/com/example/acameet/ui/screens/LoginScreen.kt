@@ -32,12 +32,15 @@ import androidx.compose.ui.unit.sp
 import com.example.acameet.R
 import com.example.acameet.ui.viewmodel.UsuarioViewModel
 
+// COLORES PRINCIPALES DE ACAMEET
 private val AzulLogin = Color(0xFF0798F2)
-private val GrisLogin = Color(0xFF9BA8B4)
 private val VerdeLogin = Color(0xFF4CAF50)
 private val RojoLogin = Color(0xFFFF6B6B)
 
-// STATEFUL ROUTE
+// ============================================================
+// LOGIN ROUTE - LÓGICA DE INICIO DE SESIÓN
+// ============================================================
+
 @Composable
 fun LoginRoute(
     viewModel: UsuarioViewModel,
@@ -61,8 +64,9 @@ fun LoginRoute(
         mutableStateOf(false)
     }
 
-    val correoValido = email.isNotBlank() &&
-            Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    val correoValido =
+        email.isNotBlank() &&
+                Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
 
     val formularioValido =
         correoValido &&
@@ -75,6 +79,7 @@ fun LoginRoute(
         mensajeError = mensajeError,
         correoValido = correoValido,
         formularioValido = formularioValido,
+        iniciandoSesion = iniciandoSesion,
         onEmailChange = {
             email = it
             mensajeError = null
@@ -91,6 +96,7 @@ fun LoginRoute(
                     correo = email.trim(),
                     contrasena = password
                 ) { usuario, mensaje ->
+
                     iniciandoSesion = false
 
                     if (usuario != null) {
@@ -106,7 +112,10 @@ fun LoginRoute(
     )
 }
 
-// STATELESS CONTENT
+// ============================================================
+// LOGIN CONTENT - INTERFAZ CON TEMA CLARO Y OSCURO
+// ============================================================
+
 @Composable
 fun LoginContent(
     email: String,
@@ -118,18 +127,37 @@ fun LoginContent(
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iniciandoSesion: Boolean = false
 ) {
     var mostrarContrasena by remember {
         mutableStateOf(false)
     }
 
+    // DETECTAR EL TEMA ACTIVO
+    val modoOscuro = !MaterialTheme.colorScheme.isLightLogin()
+
+    val colorTextoPrincipal =
+        MaterialTheme.colorScheme.onBackground
+
+    val colorTextoSecundario =
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    // FONDO DINÁMICO SEGÚN EL TEMA
     val background = Brush.verticalGradient(
-        listOf(
-            Color(0xFF020B12),
-            Color(0xFF03141F),
-            Color(0xFF001D32)
-        )
+        colors = if (modoOscuro) {
+            listOf(
+                Color(0xFF020B12),
+                Color(0xFF03141F),
+                Color(0xFF001D32)
+            )
+        } else {
+            listOf(
+                Color(0xFFF8FBFD),
+                Color(0xFFEDF5FA),
+                Color(0xFFDCEEF8)
+            )
+        }
     )
 
     Box(
@@ -145,6 +173,8 @@ fun LoginContent(
                 .padding(top = 80.dp, bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            // LOGO DE ACAMEET
             Image(
                 painter = painterResource(R.drawable.acameet_logo),
                 contentDescription = "Logo de AcaMeet",
@@ -154,18 +184,19 @@ fun LoginContent(
 
             Spacer(Modifier.height((-35).dp))
 
+            // NOMBRE DE LA APLICACIÓN
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Aca",
-                    color = Color.White,
+                    text = "Aca",
+                    color = colorTextoPrincipal,
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    "Meet",
+                    text = "Meet",
                     color = AzulLogin,
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold
@@ -175,17 +206,18 @@ fun LoginContent(
             Spacer(Modifier.height(6.dp))
 
             Text(
-                "Gestión de eventos académicos",
-                color = GrisLogin,
+                text = "Gestión de eventos académicos",
+                color = colorTextoSecundario,
                 fontSize = 14.sp
             )
 
             Spacer(Modifier.height(50.dp))
 
+            // TÍTULO DE INICIO DE SESIÓN
             Text(
-                "Iniciar sesión",
+                text = "Iniciar sesión",
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = colorTextoPrincipal,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -193,9 +225,9 @@ fun LoginContent(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                "Ingresa tus datos para continuar",
+                text = "Ingresa tus datos para continuar",
                 modifier = Modifier.fillMaxWidth(),
-                color = GrisLogin,
+                color = colorTextoSecundario,
                 fontSize = 15.sp
             )
 
@@ -211,7 +243,7 @@ fun LoginContent(
                 },
                 leadingIcon = {
                     Icon(
-                        Icons.Default.Email,
+                        imageVector = Icons.Default.Email,
                         contentDescription = "Correo"
                     )
                 },
@@ -224,6 +256,7 @@ fun LoginContent(
                 shape = RoundedCornerShape(14.dp)
             )
 
+            // VALIDACIÓN DEL CORREO
             if (email.isNotEmpty()) {
                 Spacer(Modifier.height(5.dp))
 
@@ -249,7 +282,7 @@ fun LoginContent(
                 },
                 leadingIcon = {
                     Icon(
-                        Icons.Default.Lock,
+                        imageVector = Icons.Default.Lock,
                         contentDescription = "Contraseña"
                     )
                 },
@@ -286,12 +319,13 @@ fun LoginContent(
                 shape = RoundedCornerShape(14.dp)
             )
 
+            // MENSAJE DE ERROR
             if (mensajeError != null) {
                 Spacer(Modifier.height(12.dp))
 
                 Text(
                     text = mensajeError,
-                    color = RojoLogin,
+                    color = MaterialTheme.colorScheme.error,
                     fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -308,27 +342,38 @@ fun LoginContent(
                     .height(55.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AzulLogin,
-                    disabledContainerColor = Color(0xFF345064),
-                    disabledContentColor = GrisLogin
+                    contentColor = Color.White,
+                    disabledContainerColor =
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor =
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text(
-                    "Iniciar sesión",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (iniciandoSesion) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Iniciar sesión",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(Modifier.height(26.dp))
 
-            // IR A REGISTRO
+            // CREAR CUENTA
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "¿No tienes una cuenta?",
-                    color = GrisLogin,
+                    text = "¿No tienes una cuenta?",
+                    color = colorTextoSecundario,
                     fontSize = 14.sp
                 )
 
@@ -336,7 +381,7 @@ fun LoginContent(
                     onClick = onNavigateToRegister
                 ) {
                     Text(
-                        "Crear cuenta",
+                        text = "Crear cuenta",
                         color = AzulLogin,
                         fontWeight = FontWeight.Bold
                     )
@@ -346,7 +391,10 @@ fun LoginContent(
     }
 }
 
-// MENSAJES DE VALIDACIÓN
+// ============================================================
+// VALIDACIÓN DEL CORREO
+// ============================================================
+
 @Composable
 private fun MensajeLogin(
     texto: String,
@@ -354,29 +402,76 @@ private fun MensajeLogin(
 ) {
     Text(
         text = (if (valido) "✓ " else "✗ ") + texto,
-        color = if (valido) VerdeLogin else RojoLogin,
+        color = if (valido) {
+            VerdeLogin
+        } else {
+            MaterialTheme.colorScheme.error
+        },
         fontSize = 12.sp,
         modifier = Modifier.fillMaxWidth()
     )
 }
 
-// COLORES ORIGINALES DE LOS CAMPOS
+// ============================================================
+// COLORES DE CAMPOS ADAPTADOS AL TEMA
+// ============================================================
+
 @Composable
 private fun coloresLoginTiempoReal() =
     OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.White,
-        unfocusedTextColor = Color.White,
+        focusedTextColor =
+            MaterialTheme.colorScheme.onBackground,
+
+        unfocusedTextColor =
+            MaterialTheme.colorScheme.onBackground,
+
         focusedBorderColor = AzulLogin,
-        unfocusedBorderColor = Color(0xFF345064),
+
+        unfocusedBorderColor =
+            MaterialTheme.colorScheme.outline,
+
         focusedLabelColor = AzulLogin,
-        unfocusedLabelColor = GrisLogin,
+
+        unfocusedLabelColor =
+            MaterialTheme.colorScheme.onSurfaceVariant,
+
         focusedLeadingIconColor = AzulLogin,
-        unfocusedLeadingIconColor = GrisLogin,
+
+        unfocusedLeadingIconColor =
+            MaterialTheme.colorScheme.onSurfaceVariant,
+
         focusedTrailingIconColor = AzulLogin,
-        unfocusedTrailingIconColor = GrisLogin,
+
+        unfocusedTrailingIconColor =
+            MaterialTheme.colorScheme.onSurfaceVariant,
+
         cursorColor = AzulLogin,
-        errorTextColor = Color.White,
-        errorBorderColor = RojoLogin,
-        errorLabelColor = RojoLogin,
-        errorLeadingIconColor = RojoLogin
+
+        errorTextColor =
+            MaterialTheme.colorScheme.onBackground,
+
+        errorBorderColor =
+            MaterialTheme.colorScheme.error,
+
+        errorLabelColor =
+            MaterialTheme.colorScheme.error,
+
+        errorLeadingIconColor =
+            MaterialTheme.colorScheme.error
     )
+
+// ============================================================
+// IDENTIFICAR SI EL ESQUEMA ACTUAL ES CLARO
+// ============================================================
+
+private fun ColorScheme.isLightLogin(): Boolean {
+    val fondo = background
+
+    // CALCULAR LA LUMINOSIDAD DEL FONDO DEL TEMA
+    val luminosidad =
+        (0.2126f * fondo.red) +
+                (0.7152f * fondo.green) +
+                (0.0722f * fondo.blue)
+
+    return luminosidad > 0.5f
+}

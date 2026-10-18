@@ -1,17 +1,15 @@
-
 package com.example.acameet.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
@@ -21,8 +19,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,28 +26,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.acameet.ui.components.BottomNavigationBar
 import com.example.acameet.ui.viewmodel.ConfiguracionUiState
 import com.example.acameet.ui.viewmodel.ConfiguracionViewModel
-
-
-import com.example.acameet.ui.components.BottomNavigationBar
-
-
-private val Azul = Color(0xFF0798F2)
-private val FondoOscuro = Color(0xFF020B12)
-private val Tarjeta = Color(0xFF0A1C28)
-private val Gris = Color(0xFF9BA8B4)
-private val Blanco = Color.White
-private val Rojo = Color(0xFFF87171)
-private val Borde = Color(0xFF19384B)
-
-private val FondoDegradado = Brush.verticalGradient(
-    listOf(
-        Color(0xFF020B12),
-        Color(0xFF03141F),
-        Color(0xFF001D32)
-    )
-)
 
 @Composable
 fun ConfiguracionRoute(
@@ -80,27 +57,21 @@ fun ConfiguracionRoute(
 
     ConfiguracionContent(
         uiState = uiState,
-
         onRecordarSesionChanged = { enabled ->
             viewModel.onRecordarSesionChanged(
                 enabled = enabled,
                 usuarioId = usuarioId
             )
         },
-
         onTemaOscuroChanged = viewModel::onTemaOscuroChanged,
         onNotificacionesChanged = viewModel::onNotificacionesChanged,
-
         onEditarPerfil = {
             val id = usuarioId
-
             if (id != null) {
                 mensaje = null
                 procesando = true
-
                 viewModel.cargarUsuario(id) { usuario ->
                     procesando = false
-
                     if (usuario != null) {
                         nombre = usuario.nombre
                         correo = usuario.correo
@@ -111,7 +82,6 @@ fun ConfiguracionRoute(
                 }
             }
         },
-
         onCambiarContrasena = {
             actual = ""
             nueva = ""
@@ -119,7 +89,6 @@ fun ConfiguracionRoute(
             mensaje = null
             mostrarContrasena = true
         },
-
         onLogout = onLogout,
         onInicioClick = onInicioClick,
         onCategoriasClick = onCategoriasClick,
@@ -130,12 +99,12 @@ fun ConfiguracionRoute(
     if (procesando && !mostrarPerfil && !mostrarContrasena) {
         AlertDialog(
             onDismissRequest = {},
-            containerColor = Tarjeta,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
-                Text("Cargando", color = Blanco)
+                Text("Cargando", color = MaterialTheme.colorScheme.onSurface)
             },
             text = {
-                CircularProgressIndicator(color = Azul)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             },
             confirmButton = {}
         )
@@ -146,16 +115,12 @@ fun ConfiguracionRoute(
             onDismissRequest = {
                 if (!procesando) mostrarPerfil = false
             },
-            containerColor = Tarjeta,
-            titleContentColor = Blanco,
-            textContentColor = Blanco,
-            title = {
-                Text("Editar perfil")
-            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            title = { Text("Editar perfil") },
             text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     CampoConfiguracion(
                         valor = nombre,
                         alCambiar = {
@@ -176,8 +141,8 @@ fun ConfiguracionRoute(
 
                     if (mensaje != null) {
                         Text(
-                            mensaje ?: "",
-                            color = Rojo,
+                            text = mensaje ?: "",
+                            color = MaterialTheme.colorScheme.error,
                             fontSize = 13.sp
                         )
                     }
@@ -188,7 +153,6 @@ fun ConfiguracionRoute(
                     enabled = !procesando,
                     onClick = {
                         val id = usuarioId ?: return@TextButton
-
                         procesando = true
                         mensaje = null
 
@@ -198,7 +162,6 @@ fun ConfiguracionRoute(
                             correo = correo
                         ) { exito, respuesta ->
                             procesando = false
-
                             if (exito) {
                                 mostrarPerfil = false
                                 mensaje = null
@@ -208,7 +171,7 @@ fun ConfiguracionRoute(
                         }
                     }
                 ) {
-                    Text("Guardar", color = Azul)
+                    Text("Guardar", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
@@ -219,7 +182,7 @@ fun ConfiguracionRoute(
                         mensaje = null
                     }
                 ) {
-                    Text("Cancelar", color = Gris)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -230,16 +193,12 @@ fun ConfiguracionRoute(
             onDismissRequest = {
                 if (!procesando) mostrarContrasena = false
             },
-            containerColor = Tarjeta,
-            titleContentColor = Blanco,
-            textContentColor = Blanco,
-            title = {
-                Text("Cambiar contraseña")
-            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            title = { Text("Cambiar contraseña") },
             text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     CampoConfiguracion(
                         valor = actual,
                         alCambiar = {
@@ -272,8 +231,8 @@ fun ConfiguracionRoute(
 
                     if (mensaje != null) {
                         Text(
-                            mensaje ?: "",
-                            color = Rojo,
+                            text = mensaje ?: "",
+                            color = MaterialTheme.colorScheme.error,
                             fontSize = 13.sp
                         )
                     }
@@ -284,7 +243,6 @@ fun ConfiguracionRoute(
                     enabled = !procesando,
                     onClick = {
                         val id = usuarioId ?: return@TextButton
-
                         procesando = true
                         mensaje = null
 
@@ -295,7 +253,6 @@ fun ConfiguracionRoute(
                             confirmar = confirmar
                         ) { exito, respuesta ->
                             procesando = false
-
                             if (exito) {
                                 mostrarContrasena = false
                                 actual = ""
@@ -308,7 +265,7 @@ fun ConfiguracionRoute(
                         }
                     }
                 ) {
-                    Text("Guardar", color = Azul)
+                    Text("Guardar", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
@@ -319,7 +276,7 @@ fun ConfiguracionRoute(
                         mensaje = null
                     }
                 ) {
-                    Text("Cancelar", color = Gris)
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -341,7 +298,7 @@ fun ConfiguracionContent(
     onCambiarContrasena: () -> Unit = {}
 ) {
     Scaffold(
-        containerColor = FondoOscuro,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             BottomNavigationBar(
                 pantallaActual = "configuracion",
@@ -351,17 +308,15 @@ fun ConfiguracionContent(
             )
         }
     ) { innerPadding ->
-
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(FondoDegradado)
                 .padding(innerPadding)
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = Azul
+                    color = MaterialTheme.colorScheme.primary
                 )
             } else {
                 val prefs = uiState.preferences
@@ -376,15 +331,15 @@ fun ConfiguracionContent(
                     Spacer(Modifier.height(24.dp))
 
                     Text(
-                        "Configuración",
-                        color = Blanco,
+                        text = "Configuración",
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
 
                     Text(
-                        "Personaliza tu experiencia en AcaMeet",
-                        color = Gris,
+                        text = "Personaliza tu experiencia en AcaMeet",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
 
@@ -399,9 +354,9 @@ fun ConfiguracionContent(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Tarjeta
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
-                        border = BorderStroke(1.dp, Borde)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Column {
                             OpcionConfiguracion(
@@ -411,7 +366,7 @@ fun ConfiguracionContent(
                                 onClick = onEditarPerfil
                             )
 
-                            HorizontalDivider(color = Borde)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             OpcionConfiguracion(
                                 titulo = "Cambiar contraseña",
@@ -433,9 +388,9 @@ fun ConfiguracionContent(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Tarjeta
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
-                        border = BorderStroke(1.dp, Borde)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Column {
                             OpcionConSwitch(
@@ -446,7 +401,7 @@ fun ConfiguracionContent(
                                 onCheckedChange = onRecordarSesionChanged
                             )
 
-                            HorizontalDivider(color = Borde)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             OpcionConSwitch(
                                 titulo = "Tema oscuro",
@@ -456,7 +411,7 @@ fun ConfiguracionContent(
                                 onCheckedChange = onTemaOscuroChanged
                             )
 
-                            HorizontalDivider(color = Borde)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             OpcionConSwitch(
                                 titulo = "Notificaciones",
@@ -476,21 +431,21 @@ fun ConfiguracionContent(
                             .fillMaxWidth()
                             .height(54.dp),
                         shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Rojo),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color(0xFF26171C),
-                            contentColor = Rojo
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                            contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
                         Icon(
-                            Icons.Default.ExitToApp,
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = null
                         )
 
                         Spacer(Modifier.width(10.dp))
 
                         Text(
-                            "Cerrar sesión",
+                            text = "Cerrar sesión",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp
                         )
@@ -515,13 +470,13 @@ private fun TituloSeccion(
         Icon(
             imageVector = icono,
             contentDescription = null,
-            tint = Azul,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(22.dp)
         )
 
         Text(
-            titulo,
-            color = Blanco,
+            text = titulo,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -545,7 +500,7 @@ private fun OpcionConfiguracion(
         Icon(
             imageVector = icono,
             contentDescription = null,
-            tint = Azul,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
         )
 
@@ -555,8 +510,8 @@ private fun OpcionConfiguracion(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                titulo,
-                color = Blanco,
+                text = titulo,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -564,16 +519,16 @@ private fun OpcionConfiguracion(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                descripcion,
-                color = Gris,
+                text = descripcion,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
 
         Icon(
-            Icons.Default.ChevronRight,
+            imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Gris
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -595,7 +550,7 @@ private fun OpcionConSwitch(
         Icon(
             imageVector = icono,
             contentDescription = null,
-            tint = Azul,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
         )
 
@@ -605,8 +560,8 @@ private fun OpcionConSwitch(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                titulo,
-                color = Blanco,
+                text = titulo,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -614,21 +569,15 @@ private fun OpcionConSwitch(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                descripcion,
-                color = Gris,
+                text = descripcion,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
 
         Switch(
             checked = activado,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Blanco,
-                checkedTrackColor = Azul,
-                uncheckedThumbColor = Gris,
-                uncheckedTrackColor = Borde
-            )
+            onCheckedChange = onCheckedChange
         )
     }
 }
@@ -651,15 +600,6 @@ private fun CampoConfiguracion(
         } else {
             VisualTransformation.None
         },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = Blanco,
-            unfocusedTextColor = Blanco,
-            focusedLabelColor = Azul,
-            unfocusedLabelColor = Gris,
-            focusedBorderColor = Azul,
-            unfocusedBorderColor = Borde,
-            cursorColor = Azul
-        ),
         shape = RoundedCornerShape(12.dp)
     )
 }

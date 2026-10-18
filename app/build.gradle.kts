@@ -55,6 +55,9 @@ dependencies {
     // Iconos para AcaMeet
     implementation("androidx.compose.material:material-icons-extended")
 
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
+
     // Room - Base de datos local
     implementation("androidx.room:room-runtime:2.8.4")
     implementation("androidx.room:room-ktx:2.8.4")

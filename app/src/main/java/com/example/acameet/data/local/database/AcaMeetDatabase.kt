@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 import com.example.acameet.data.local.entity.Usuario
 import com.example.acameet.data.local.entity.Categoria
@@ -16,7 +18,6 @@ import com.example.acameet.data.local.dao.CategoriaDao
 import com.example.acameet.data.local.dao.LugarDao
 import com.example.acameet.data.local.dao.EventoDao
 
-// BASE DE DATOS PRINCIPAL DE ACAMEET
 @Database(
     entities = [
         Usuario::class,
@@ -24,7 +25,7 @@ import com.example.acameet.data.local.dao.EventoDao
         Lugar::class,
         Evento::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AcaMeetDatabase : RoomDatabase() {
@@ -46,7 +47,22 @@ abstract class AcaMeetDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AcaMeetDatabase? = null
 
-        // OBTENER INSTANCIA ÚNICA DE LA BASE DE DATOS
+        // MIGRACIÓN DE LA VERSIÓN 4 A LA 5
+        // AGREGA LA COLUMNA PARA LAS IMÁGENES
+        // SIN ELIMINAR LOS DATOS EXISTENTES
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+
+            override fun migrate(
+                db: SupportSQLiteDatabase
+            ) {
+                db.execSQL(
+                    "ALTER TABLE eventos " +
+                            "ADD COLUMN imagenUrl TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
+        // OBTENER INSTANCIA DE LA BASE DE DATOS
         fun getDatabase(
             context: Context
         ): AcaMeetDatabase {
@@ -58,6 +74,7 @@ abstract class AcaMeetDatabase : RoomDatabase() {
                     AcaMeetDatabase::class.java,
                     "acameet_database"
                 )
+                    .addMigrations(MIGRATION_4_5)
                     .build()
 
                 INSTANCE = instance

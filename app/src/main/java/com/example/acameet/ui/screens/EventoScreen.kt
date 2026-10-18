@@ -19,11 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.example.acameet.data.local.entity.Categoria
 import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.local.entity.Lugar
@@ -38,19 +41,19 @@ import java.util.Calendar
 import java.util.Locale
 
 private val AzulEv = Color(0xFF0798F2)
-private val RojoEvOscuro = Color(0xFFE57373)
+private val RojoEv = Color(0xFFE57373)
 
 @Composable
-private fun colorErrorEv(): Color {
+private fun ColorErrorEv(): Color {
     val colores = MaterialTheme.colorScheme
     return if (colores.background == Color(0xFF020B12)) {
-        RojoEvOscuro
+        RojoEv
     } else {
         colores.error
     }
 }
 
-// COMPATIBILIDAD CON APPNAVIGATION
+// COMPATIBILIDAD CON LA NAVEGACIÓN ACTUAL
 @Composable
 fun EventoScreen(
     viewModel: EventoViewModel,
@@ -74,7 +77,7 @@ fun EventoScreen(
     )
 }
 
-// STATEFUL ROUTE
+// ROUTE: MANEJA EL ESTADO Y EL VIEWMODEL
 @Composable
 fun EventoRoute(
     viewModel: EventoViewModel,
@@ -88,8 +91,10 @@ fun EventoRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val busqueda by viewModel.busqueda.collectAsStateWithLifecycle()
-    val categoriaState by categoriaViewModel.uiState.collectAsStateWithLifecycle()
-    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
+    val categoriaState by
+    categoriaViewModel.uiState.collectAsStateWithLifecycle()
+    val lugares by
+    lugarViewModel.lugares.collectAsStateWithLifecycle()
 
     val categorias = when (val estado = categoriaState) {
         is CategoriaUiState.Success -> estado.categorias
@@ -119,9 +124,8 @@ fun EventoRoute(
     LaunchedEffect(eventoIdInicial) {
         if (eventoIdInicial != null) {
             try {
-                val evento = viewModel.obtenerEventoParaPantalla(
-                    eventoIdInicial
-                )
+                val evento =
+                    viewModel.obtenerEventoParaPantalla(eventoIdInicial)
 
                 if (evento != null) {
                     seleccionado = evento
@@ -130,7 +134,7 @@ fun EventoRoute(
                     pantalla = "lista"
                     mensaje = "El evento ya no está disponible"
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 pantalla = "lista"
                 mensaje = "No se pudo cargar el evento"
             }
@@ -178,7 +182,8 @@ fun EventoRoute(
                 fecha,
                 hora,
                 categoriaId,
-                lugarId ->
+                lugarId,
+                imagenUrl ->
 
             if (eventoInicial == null) {
                 viewModel.registrarEvento(
@@ -187,7 +192,8 @@ fun EventoRoute(
                     fecha = fecha,
                     hora = hora,
                     categoriaId = categoriaId,
-                    lugarId = lugarId
+                    lugarId = lugarId,
+                    imagenUrl = imagenUrl
                 )
             } else {
                 viewModel.actualizarEvento(
@@ -197,7 +203,8 @@ fun EventoRoute(
                     fecha = fecha,
                     hora = hora,
                     categoriaId = categoriaId,
-                    lugarId = lugarId
+                    lugarId = lugarId,
+                    imagenUrl = imagenUrl
                 )
             }
         },
@@ -208,7 +215,7 @@ fun EventoRoute(
     )
 }
 
-// STATELESS CONTENT
+// CONTENT: INTERFAZ SIN DEPENDENCIA DEL VIEWMODEL
 @Composable
 fun EventoContent(
     uiState: EventoUiState,
@@ -226,7 +233,10 @@ fun EventoContent(
     onMensajeChange: (String?) -> Unit,
     onCategoriaFiltroChange: (Int?) -> Unit,
     onBusquedaChange: (String) -> Unit,
-    onRegistrarLugar: (String, (Boolean, String) -> Unit) -> Unit,
+    onRegistrarLugar: (
+        String,
+        (Boolean, String) -> Unit
+    ) -> Unit,
     onGuardarEvento: (
         Evento?,
         String,
@@ -234,7 +244,8 @@ fun EventoContent(
         String,
         String,
         Int,
-        Int
+        Int,
+        String
     ) -> Unit,
     onEliminarEvento: (Evento) -> Unit,
     onInicioClick: () -> Unit = {},
@@ -243,9 +254,9 @@ fun EventoContent(
 ) {
     val colores = MaterialTheme.colorScheme
     val esOscuro = colores.background == Color(0xFF020B12)
-    val rojo = colorErrorEv()
+    val rojo = ColorErrorEv()
 
-    val fondoEv = Brush.verticalGradient(
+    val fondo = Brush.verticalGradient(
         if (esOscuro) {
             listOf(
                 Color(0xFF020B12),
@@ -289,10 +300,11 @@ fun EventoContent(
             }
         }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(fondoEv)
+                .background(fondo)
                 .padding(padding)
                 .padding(horizontal = 22.dp)
         ) {
@@ -309,7 +321,7 @@ fun EventoContent(
                     )
 
                     Text(
-                        text = "Administra los eventos académicos",
+                        text = "Descubre y participa en eventos académicos",
                         color = colores.onSurfaceVariant,
                         fontSize = 14.sp
                     )
@@ -333,8 +345,6 @@ fun EventoContent(
                             unfocusedBorderColor = colores.outline,
                             focusedTextColor = colores.onBackground,
                             unfocusedTextColor = colores.onBackground,
-                            focusedPlaceholderColor = colores.onSurfaceVariant,
-                            unfocusedPlaceholderColor = colores.onSurfaceVariant,
                             cursorColor = AzulEv
                         )
                     )
@@ -350,6 +360,7 @@ fun EventoContent(
                     Spacer(Modifier.height(16.dp))
 
                     when (val estado = uiState) {
+
                         is EventoUiState.Loading -> {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -396,64 +407,24 @@ fun EventoContent(
                                         items = eventos,
                                         key = { it.id }
                                     ) { evento ->
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    onSeleccionadoChange(evento)
-                                                    onPantallaChange("detalle")
-                                                },
-                                            shape = RoundedCornerShape(18.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = colores.surface
-                                            )
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment =
-                                                    Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Event,
-                                                    contentDescription = null,
-                                                    tint = AzulEv,
-                                                    modifier = Modifier.size(40.dp)
-                                                )
 
-                                                Spacer(Modifier.width(12.dp))
+                                        val categoria = categorias.find {
+                                            it.id == evento.categoriaId
+                                        }?.nombre ?: "Evento"
 
-                                                Column(
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
-                                                    Text(
-                                                        text = evento.nombre,
-                                                        color = colores.onSurface,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
+                                        val lugar = lugares.find {
+                                            it.id == evento.lugarId
+                                        }?.nombre ?: "Lugar no disponible"
 
-                                                    Text(
-                                                        text = evento.descripcion,
-                                                        color = colores.onSurfaceVariant,
-                                                        fontSize = 13.sp,
-                                                        maxLines = 2
-                                                    )
-
-                                                    Spacer(Modifier.height(5.dp))
-
-                                                    Text(
-                                                        text = "${evento.fecha} • ${evento.hora}",
-                                                        color = AzulEv,
-                                                        fontSize = 12.sp
-                                                    )
-                                                }
-
-                                                Icon(
-                                                    imageVector = Icons.Default.ChevronRight,
-                                                    contentDescription = "Ver detalle",
-                                                    tint = AzulEv
-                                                )
+                                        TarjetaEventoEv(
+                                            evento = evento,
+                                            categoria = categoria,
+                                            lugar = lugar,
+                                            onClick = {
+                                                onSeleccionadoChange(evento)
+                                                onPantallaChange("detalle")
                                             }
-                                        }
+                                        )
                                     }
                                 }
                             }
@@ -463,6 +434,7 @@ fun EventoContent(
 
                 "detalle" -> {
                     seleccionado?.let { evento ->
+
                         EncabezadoEv(
                             titulo = "Detalle del evento",
                             onVolver = {
@@ -488,6 +460,14 @@ fun EventoContent(
                                     verticalArrangement =
                                         Arrangement.spacedBy(12.dp)
                                 ) {
+                                    ImagenEventoEv(
+                                        imagenUrl = evento.imagenUrl,
+                                        nombre = evento.nombre,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(190.dp)
+                                    )
+
                                     Text(
                                         text = evento.nombre,
                                         color = colores.onSurface,
@@ -536,9 +516,7 @@ fun EventoContent(
                                     Icons.Default.Edit,
                                     contentDescription = null
                                 )
-
                                 Spacer(Modifier.width(8.dp))
-
                                 Text("Editar evento")
                             }
 
@@ -553,9 +531,7 @@ fun EventoContent(
                                     contentDescription = null,
                                     tint = rojo
                                 )
-
                                 Spacer(Modifier.width(8.dp))
-
                                 Text(
                                     "Eliminar evento",
                                     color = rojo
@@ -606,7 +582,8 @@ fun EventoContent(
                                 fecha,
                                 hora,
                                 categoriaId,
-                                lugarId ->
+                                lugarId,
+                                imagenUrl ->
 
                             onGuardarEvento(
                                 eventoInicial,
@@ -615,7 +592,8 @@ fun EventoContent(
                                 fecha,
                                 hora,
                                 categoriaId,
-                                lugarId
+                                lugarId,
+                                imagenUrl
                             )
                         }
                     )
@@ -630,8 +608,6 @@ fun EventoContent(
                 onEliminarChange(null)
             },
             containerColor = colores.surface,
-            titleContentColor = colores.onSurface,
-            textContentColor = colores.onSurfaceVariant,
             title = {
                 Text("Eliminar evento")
             },
@@ -646,10 +622,7 @@ fun EventoContent(
                         onEliminarEvento(evento)
                     }
                 ) {
-                    Text(
-                        "Eliminar",
-                        color = rojo
-                    )
+                    Text("Eliminar", color = rojo)
                 }
             },
             dismissButton = {
@@ -658,10 +631,7 @@ fun EventoContent(
                         onEliminarChange(null)
                     }
                 ) {
-                    Text(
-                        "Cancelar",
-                        color = colores.onSurfaceVariant
-                    )
+                    Text("Cancelar")
                 }
             }
         )
@@ -673,8 +643,6 @@ fun EventoContent(
                 onMensajeChange(null)
             },
             containerColor = colores.surface,
-            titleContentColor = colores.onSurface,
-            textContentColor = colores.onSurfaceVariant,
             title = {
                 Text("AcaMeet")
             },
@@ -687,13 +655,184 @@ fun EventoContent(
                         onMensajeChange(null)
                     }
                 ) {
-                    Text(
-                        "Aceptar",
-                        color = AzulEv
-                    )
+                    Text("Aceptar", color = AzulEv)
                 }
             }
         )
+    }
+}
+
+// IMAGEN DE INTERNET CON COIL
+@Composable
+private fun ImagenEventoEv(
+    imagenUrl: String,
+    nombre: String,
+    modifier: Modifier = Modifier
+) {
+    val colores = MaterialTheme.colorScheme
+
+    Box(
+        modifier = modifier
+            .background(
+                colores.surfaceVariant,
+                RoundedCornerShape(12.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (imagenUrl.isNotBlank()) {
+            var fallo by remember(imagenUrl) {
+                mutableStateOf(false)
+            }
+
+            if (!fallo) {
+                AsyncImage(
+                    model = imagenUrl,
+                    contentDescription = "Imagen de $nombre",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    onError = {
+                        fallo = true
+                    }
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.BrokenImage,
+                    contentDescription = "Imagen no disponible",
+                    tint = AzulEv,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        } else {
+            Icon(
+                imageVector = Icons.Default.Event,
+                contentDescription = "Evento sin imagen",
+                tint = AzulEv,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+    }
+}
+
+// TARJETA DE EVENTO CON IMAGEN
+@Composable
+private fun TarjetaEventoEv(
+    evento: Evento,
+    categoria: String,
+    lugar: String,
+    onClick: () -> Unit
+) {
+    val colores = MaterialTheme.colorScheme
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = colores.surface
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            AzulEv.copy(alpha = 0.16f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            ImagenEventoEv(
+                imagenUrl = evento.imagenUrl,
+                nombre = evento.nombre,
+                modifier = Modifier.size(
+                    width = 96.dp,
+                    height = 96.dp
+                )
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Surface(
+                    color = AzulEv.copy(alpha = 0.16f),
+                    shape = RoundedCornerShape(7.dp)
+                ) {
+                    Text(
+                        text = categoria,
+                        color = AzulEv,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(
+                            horizontal = 7.dp,
+                            vertical = 3.dp
+                        )
+                    )
+                }
+
+                Text(
+                    text = evento.nombre,
+                    color = colores.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = colores.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        evento.fecha,
+                        color = colores.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = colores.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        evento.hora,
+                        color = colores.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = colores.onSurfaceVariant,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        lugar,
+                        color = colores.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "Ver detalle",
+                tint = colores.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
@@ -727,7 +866,7 @@ private fun EncabezadoEv(
     Spacer(Modifier.height(16.dp))
 }
 
-// DATO DEL EVENTO
+// DATOS DEL EVENTO
 @Composable
 private fun DatoEv(
     etiqueta: String,
@@ -868,9 +1007,6 @@ private fun <T> SelectorEv(
             onDismissRequest = {
                 mostrarDialogo = false
             },
-            containerColor = colores.surface,
-            titleContentColor = colores.onSurface,
-            textContentColor = colores.onSurfaceVariant,
             title = {
                 Text("Seleccionar $etiqueta")
             },
@@ -887,9 +1023,7 @@ private fun <T> SelectorEv(
                         opciones.forEach { opcion ->
                             TextButton(
                                 onClick = {
-                                    onSeleccionar(
-                                        obtenerId(opcion)
-                                    )
+                                    onSeleccionar(obtenerId(opcion))
                                     mostrarDialogo = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -910,29 +1044,37 @@ private fun <T> SelectorEv(
                         mostrarDialogo = false
                     }
                 ) {
-                    Text(
-                        "Cerrar",
-                        color = AzulEv
-                    )
+                    Text("Cerrar", color = AzulEv)
                 }
             }
         )
     }
 }
 
-// FORMULARIO COMPLETO DE EVENTOS
+// FORMULARIO PARA CREAR Y EDITAR EVENTOS
 @Composable
 private fun FormularioEv(
     eventoInicial: Evento?,
     categorias: List<Categoria>,
     lugares: List<Lugar>,
-    onRegistrarLugar: (String, (Boolean, String) -> Unit) -> Unit,
+    onRegistrarLugar: (
+        String,
+        (Boolean, String) -> Unit
+    ) -> Unit,
     onCancelar: () -> Unit,
-    onGuardar: (String, String, String, String, Int, Int) -> Unit
+    onGuardar: (
+        String,
+        String,
+        String,
+        String,
+        Int,
+        Int,
+        String
+    ) -> Unit
 ) {
     val context = LocalContext.current
     val colores = MaterialTheme.colorScheme
-    val rojo = colorErrorEv()
+    val rojo = ColorErrorEv()
 
     var nombre by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.nombre ?: "")
@@ -956,6 +1098,10 @@ private fun FormularioEv(
 
     var lugarId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.lugarId)
+    }
+
+    var imagenUrl by remember(eventoInicial) {
+        mutableStateOf(eventoInicial?.imagenUrl ?: "")
     }
 
     var error by remember(eventoInicial) {
@@ -1047,6 +1193,56 @@ private fun FormularioEv(
             }
         )
 
+        // NUEVO CAMPO PARA IMÁGENES DE INTERNET
+        Text(
+            text = "Imagen del evento",
+            color = AzulEv,
+            fontWeight = FontWeight.Bold
+        )
+
+        OutlinedTextField(
+            value = imagenUrl,
+            onValueChange = {
+                imagenUrl = it
+                error = null
+            },
+            label = {
+                Text("URL de la imagen (opcional)")
+            },
+            placeholder = {
+                Text("https://ejemplo.com/imagen.jpg")
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Default.Image,
+                    contentDescription = null
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AzulEv,
+                focusedTextColor = colores.onBackground,
+                unfocusedTextColor = colores.onBackground
+            )
+        )
+
+        Text(
+            text = "Pega un enlace HTTPS directo a una imagen.",
+            color = colores.onSurfaceVariant,
+            fontSize = 12.sp
+        )
+
+        if (imagenUrl.isNotBlank()) {
+            ImagenEventoEv(
+                imagenUrl = imagenUrl.trim(),
+                nombre = nombre.ifBlank { "Vista previa" },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(170.dp)
+            )
+        }
+
         Text(
             text = "Fecha y hora",
             color = AzulEv,
@@ -1063,8 +1259,8 @@ private fun FormularioEv(
                     if (fecha.isNotBlank()) {
                         try {
                             calendario.time = formato.parse(fecha)!!
-                        } catch (_: Exception) {
-                            // Mantener fecha actual
+                        } catch (e: Exception) {
+                            // Conservar fecha actual.
                         }
                     }
 
@@ -1092,7 +1288,6 @@ private fun FormularioEv(
                             set(Calendar.SECOND, 0)
                             set(Calendar.MILLISECOND, 0)
                         }
-
                         dialogo.datePicker.minDate = hoy.timeInMillis
                     }
 
@@ -1227,10 +1422,18 @@ private fun FormularioEv(
                         error = "Selecciona la fecha y la hora"
                     }
 
+                    imagenUrl.isNotBlank() &&
+                            !imagenUrl.trim().startsWith(
+                                "https://",
+                                ignoreCase = true
+                            ) -> {
+                        error = "La imagen debe tener una URL HTTPS"
+                    }
+
                     else -> {
                         val fechaParseada = try {
                             formato.parse(fecha)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
                             null
                         }
 
@@ -1245,13 +1448,14 @@ private fun FormularioEv(
                         ) {
                             error = "Fecha u hora no válida"
                         } else {
-                            val fechaHora = Calendar.getInstance().apply {
-                                time = fechaParseada
-                                set(Calendar.HOUR_OF_DAY, h)
-                                set(Calendar.MINUTE, m)
-                                set(Calendar.SECOND, 0)
-                                set(Calendar.MILLISECOND, 0)
-                            }
+                            val fechaHora =
+                                Calendar.getInstance().apply {
+                                    time = fechaParseada
+                                    set(Calendar.HOUR_OF_DAY, h)
+                                    set(Calendar.MINUTE, m)
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }
 
                             if (
                                 eventoInicial == null &&
@@ -1266,7 +1470,8 @@ private fun FormularioEv(
                                     fecha,
                                     hora,
                                     categoriaId!!,
-                                    lugarId!!
+                                    lugarId!!,
+                                    imagenUrl.trim()
                                 )
                             }
                         }
@@ -1300,7 +1505,7 @@ private fun FormularioEv(
         Spacer(Modifier.height(24.dp))
     }
 
-    // REGISTRAR NUEVO LUGAR
+    // DIÁLOGO PARA REGISTRAR UN LUGAR NUEVO
     if (mostrarRegistrarLugar) {
         AlertDialog(
             onDismissRequest = {
@@ -1309,8 +1514,6 @@ private fun FormularioEv(
                 }
             },
             containerColor = colores.surface,
-            titleContentColor = colores.onSurface,
-            textContentColor = colores.onSurfaceVariant,
             title = {
                 Text("Registrar nuevo lugar")
             },
@@ -1338,9 +1541,7 @@ private fun FormularioEv(
                         singleLine = true,
                         enabled = !guardandoLugar,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AzulEv,
-                            focusedTextColor = colores.onSurface,
-                            unfocusedTextColor = colores.onSurface
+                            focusedBorderColor = AzulEv
                         )
                     )
 
@@ -1395,10 +1596,7 @@ private fun FormularioEv(
                         }
                     }
                 ) {
-                    Text(
-                        text = "Guardar",
-                        color = AzulEv
-                    )
+                    Text("Guardar", color = AzulEv)
                 }
             },
             dismissButton = {
@@ -1408,10 +1606,7 @@ private fun FormularioEv(
                         mostrarRegistrarLugar = false
                     }
                 ) {
-                    Text(
-                        text = "Cancelar",
-                        color = colores.onSurfaceVariant
-                    )
+                    Text("Cancelar")
                 }
             }
         )

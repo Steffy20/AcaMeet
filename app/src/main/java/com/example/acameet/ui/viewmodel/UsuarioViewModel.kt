@@ -1,6 +1,7 @@
 
 package com.example.acameet.ui.viewmodel
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.acameet.data.local.entity.Usuario
@@ -11,6 +12,7 @@ class UsuarioViewModel(
     private val repository: UsuarioRepository
 ) : ViewModel() {
 
+    // REGISTRAR USUARIO
     fun registrarUsuario(
         nombre: String,
         correo: String,
@@ -21,7 +23,7 @@ class UsuarioViewModel(
         val nombreLimpio = nombre.trim().replace(Regex("\\s+"), " ")
         val correoLimpio = correo.trim().lowercase()
 
-        // VALIDACIÓN DEL NOMBRE
+        // VALIDAR NOMBRE
         if (nombreLimpio.isEmpty()) {
             onResultado(false, "Ingresa tus nombres y apellidos completos")
             return
@@ -39,18 +41,18 @@ class UsuarioViewModel(
             return
         }
 
-        // VALIDACIÓN DEL CORREO
+        // VALIDAR CORREO
         if (correoLimpio.isEmpty()) {
             onResultado(false, "Ingresa tu correo electrónico")
             return
         }
 
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(correoLimpio).matches()) {
+        if (!Patterns.EMAIL_ADDRESS.matcher(correoLimpio).matches()) {
             onResultado(false, "Ingresa un correo electrónico válido")
             return
         }
 
-        // VALIDACIÓN DE LA CONTRASEÑA
+        // VALIDAR CONTRASEÑA
         if (contrasena.isEmpty()) {
             onResultado(false, "Ingresa una contraseña")
             return
@@ -76,7 +78,7 @@ class UsuarioViewModel(
             return
         }
 
-        // VALIDACIÓN DE CONFIRMACIÓN
+        // CONFIRMAR CONTRASEÑA
         if (confirmarContrasena.isEmpty()) {
             onResultado(false, "Confirma tu contraseña")
             return
@@ -112,6 +114,7 @@ class UsuarioViewModel(
                     true,
                     "¡Cuenta creada correctamente!"
                 )
+
             } catch (e: Exception) {
                 onResultado(
                     false,
@@ -121,25 +124,44 @@ class UsuarioViewModel(
         }
     }
 
+    // INICIAR SESIÓN ORIGINAL
     fun iniciarSesion(
         correo: String,
         contrasena: String,
         onResultado: (Boolean, String) -> Unit
     ) {
+        iniciarSesionConUsuario(
+            correo = correo,
+            contrasena = contrasena
+        ) { usuario, mensaje ->
+
+            onResultado(
+                usuario != null,
+                mensaje
+            )
+        }
+    }
+
+    // INICIAR SESIÓN Y DEVOLVER EL USUARIO AUTENTICADO
+    fun iniciarSesionConUsuario(
+        correo: String,
+        contrasena: String,
+        onResultado: (Usuario?, String) -> Unit
+    ) {
         val correoLimpio = correo.trim().lowercase()
 
         if (correoLimpio.isEmpty()) {
-            onResultado(false, "Ingresa tu correo electrónico")
+            onResultado(null, "Ingresa tu correo electrónico")
             return
         }
 
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(correoLimpio).matches()) {
-            onResultado(false, "Ingresa un correo electrónico válido")
+        if (!Patterns.EMAIL_ADDRESS.matcher(correoLimpio).matches()) {
+            onResultado(null, "Ingresa un correo electrónico válido")
             return
         }
 
         if (contrasena.isEmpty()) {
-            onResultado(false, "Ingresa tu contraseña")
+            onResultado(null, "Ingresa tu contraseña")
             return
         }
 
@@ -152,18 +174,19 @@ class UsuarioViewModel(
 
                 if (usuario != null) {
                     onResultado(
-                        true,
+                        usuario,
                         "Inicio de sesión correcto"
                     )
                 } else {
                     onResultado(
-                        false,
+                        null,
                         "Usuario o contraseña incorrectos"
                     )
                 }
+
             } catch (e: Exception) {
                 onResultado(
-                    false,
+                    null,
                     "No se pudo iniciar sesión. Inténtalo nuevamente"
                 )
             }

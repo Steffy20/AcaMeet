@@ -1,3 +1,4 @@
+
 package com.example.acameet.data.repository
 
 import com.example.acameet.data.local.dao.UsuarioDao
@@ -7,17 +8,19 @@ class UsuarioRepository(
     private val usuarioDao: UsuarioDao
 ) {
 
-    // Registrar un nuevo usuario
+    // REGISTRAR UN NUEVO USUARIO
     suspend fun registrarUsuario(usuario: Usuario) {
         usuarioDao.insertarUsuario(usuario)
     }
 
-    // Buscar si un correo ya está registrado
-    suspend fun obtenerUsuarioPorCorreo(correo: String): Usuario? {
+    // BUSCAR USUARIO POR CORREO
+    suspend fun obtenerUsuarioPorCorreo(
+        correo: String
+    ): Usuario? {
         return usuarioDao.obtenerUsuarioPorCorreo(correo)
     }
 
-    // Validar los datos para iniciar sesión
+    // INICIAR SESIÓN
     suspend fun iniciarSesion(
         correo: String,
         contrasena: String
@@ -26,5 +29,19 @@ class UsuarioRepository(
             correo = correo,
             contrasena = contrasena
         )
+    }
+
+    // OBTENER USUARIO POR ID
+    suspend fun obtenerUsuarioPorId(
+        id: Int
+    ): Usuario? {
+        return usuarioDao.obtenerUsuarioPorId(id)
+    }
+
+    // ACTUALIZAR DATOS DEL USUARIO
+    suspend fun actualizarUsuario(
+        usuario: Usuario
+    ) {
+        usuarioDao.actualizarUsuario(usuario)
     }
 }

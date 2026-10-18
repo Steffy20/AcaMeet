@@ -8,10 +8,17 @@ import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.repository.EventoRepository
 
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// ESTADOS DE LA PANTALLA DE EVENTOS
+// Estados de la pantalla de eventos
 sealed interface EventoUiState {
 
     data object Loading : EventoUiState
@@ -25,87 +32,107 @@ sealed interface EventoUiState {
     ) : EventoUiState
 }
 
-// MENSAJES DE LAS OPERACIONES
+// Mensajes de las operaciones
 data class EventoMensaje(
     val exitoso: Boolean,
     val texto: String
 )
 
-// VIEWMODEL DE EVENTOS
+// ViewModel de eventos
 class EventoViewModel(
     private val repository: EventoRepository
 ) : ViewModel() {
 
-    // TEXTO DE BÚSQUEDA
+    // Texto de búsqueda
     private val _busqueda = MutableStateFlow("")
-    val busqueda: StateFlow<String> = _busqueda.asStateFlow()
 
-    // FILTRO POR CATEGORÍA
+    val busqueda: StateFlow<String> = _busqueda
+
+    // Filtro por categoría
     private val _categoriaFiltro = MutableStateFlow<Int?>(null)
-    val categoriaFiltro: StateFlow<Int?> =
-        _categoriaFiltro.asStateFlow()
 
-    // MENSAJES PARA LA INTERFAZ
-    private val _mensajes = Channel<EventoMensaje>(
-        Channel.BUFFERED
-    )
+    val categoriaFiltro: StateFlow<Int?> = _categoriaFiltro
 
-    val mensajes = _mensajes.receiveAsFlow()
+    // Canal para comunicar resultados a la interfaz
+    private val mensajeChannel =
+        Channel<EventoMensaje>(Channel.BUFFERED)
 
-    // ESTADO DE LOS EVENTOS
-    val uiState: StateFlow<EventoUiState> = combine(
-        repository.obtenerEventos(),
-        _busqueda,
-        _categoriaFiltro
-    ) { eventos, texto, categoriaId ->
+    val mensajes = mensajeChannel.receiveAsFlow()
 
-        val eventosFiltrados = eventos.filter { evento ->
+    // Lista de eventos obtenidos desde Room
+    private val eventosRoom = repository.obtenerEventos()
 
-            val coincideBusqueda =
-                evento.nombre.contains(
-                    texto,
-                    ignoreCase = true
-                ) ||
-                        evento.descripcion.contains(
-                            texto,
-                            ignoreCase = true
-                        )
+    // Estado de la pantalla
+    val uiState: StateFlow<EventoUiState> =
+        combine(
+            eventosRoom,
+            _busqueda,
+            _categoriaFiltro
+        ) { eventos, texto, categoriaId ->
 
-            val coincideCategoria =
-                categoriaId == null ||
-                        evento.categoriaId == categoriaId
+            val textoLimpio = texto.trim()
 
-            coincideBusqueda && coincideCategoria
-        }
+            val eventosFiltrados = eventos.filter { evento ->
 
-        EventoUiState.Success(eventosFiltrados) as EventoUiState
+                val coincideBusqueda =
+                    textoLimpio.isBlank() ||
+                            evento.nombre.contains(
+                                textoLimpio,
+                                ignoreCase = true
+                            ) ||
+                            evento.descripcion.contains(
+                                textoLimpio,
+                                ignoreCase = true
+                            )
 
-    }
-        .catch { error ->
+                val coincideCategoria =
+                    categoriaId == null ||
+                            evento.categoriaId == categoriaId
+
+                coincideBusqueda && coincideCategoria
+            }
+
+            EventoUiState.Success(
+                eventos = eventosFiltrados
+            ) as EventoUiState
+
+        }.catch { error ->
+
             emit(
                 EventoUiState.Error(
-                    error.message
+                    mensaje = error.message
                         ?: "Error al cargar los eventos"
                 )
             )
-        }
-        .stateIn(
+
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = EventoUiState.Loading
         )
 
-    // ACTUALIZAR BÚSQUEDA
+    // Actualizar búsqueda
     fun actualizarBusqueda(texto: String) {
         _busqueda.value = texto
     }
 
-    // FILTRAR POR CATEGORÍA
+    // Filtrar eventos por categoría
     fun filtrarPorCategoria(categoriaId: Int?) {
         _categoriaFiltro.value = categoriaId
     }
 
-    // REGISTRAR EVENTO
+    // Limpiar búsqueda y filtros
+    fun limpiarFiltros() {
+        _busqueda.value = ""
+        _categoriaFiltro.value = null
+    }
+
+    // Obtener un evento por ID para abrir su detalle
+    suspend fun obtenerEventoParaPantalla(id: Int): Evento? {
+        return repository.obtenerEventoPorId(id)
+    }
+
+    // Registrar un nuevo evento
     fun registrarEvento(
         nombre: String,
         descripcion: String,
@@ -114,39 +141,54 @@ class EventoViewModel(
         categoriaId: Int,
         lugarId: Int
     ) {
+
+        val nombreLimpio = nombre.trim()
+        val descripcionLimpia = descripcion.trim()
+
+        if (
+            nombreLimpio.isBlank() ||
+            descripcionLimpia.isBlank() ||
+            fecha.isBlank() ||
+            hora.isBlank()
+        ) {
+            enviarMensaje(
+                false,
+                "Completa todos los campos del evento"
+            )
+            return
+        }
+
+        if (categoriaId <= 0) {
+            enviarMensaje(
+                false,
+                "Selecciona una categoría válida"
+            )
+            return
+        }
+
+        if (lugarId <= 0) {
+            enviarMensaje(
+                false,
+                "Selecciona un lugar válido"
+            )
+            return
+        }
+
         viewModelScope.launch {
-
-            if (
-                nombre.isBlank() ||
-                descripcion.isBlank() ||
-                fecha.isBlank() ||
-                hora.isBlank() ||
-                categoriaId <= 0 ||
-                lugarId <= 0
-            ) {
-                _mensajes.send(
-                    EventoMensaje(
-                        exitoso = false,
-                        texto = "Completa todos los campos"
-                    )
-                )
-                return@launch
-            }
-
             try {
 
-                val evento = Evento(
-                    nombre = nombre.trim(),
-                    descripcion = descripcion.trim(),
-                    fecha = fecha.trim(),
-                    hora = hora.trim(),
+                val nuevoEvento = Evento(
+                    nombre = nombreLimpio,
+                    descripcion = descripcionLimpia,
+                    fecha = fecha,
+                    hora = hora,
                     categoriaId = categoriaId,
                     lugarId = lugarId
                 )
 
-                repository.insertarEvento(evento)
+                repository.insertarEvento(nuevoEvento)
 
-                _mensajes.send(
+                mensajeChannel.send(
                     EventoMensaje(
                         exitoso = true,
                         texto = "Evento registrado correctamente"
@@ -155,18 +197,17 @@ class EventoViewModel(
 
             } catch (e: Exception) {
 
-                _mensajes.send(
+                mensajeChannel.send(
                     EventoMensaje(
                         exitoso = false,
-                        texto = e.message
-                            ?: "Error al registrar evento"
+                        texto = "No se pudo registrar el evento"
                     )
                 )
             }
         }
     }
 
-    // ACTUALIZAR EVENTO
+    // Actualizar un evento existente
     fun actualizarEvento(
         evento: Evento,
         nombre: String,
@@ -176,39 +217,54 @@ class EventoViewModel(
         categoriaId: Int,
         lugarId: Int
     ) {
+
+        val nombreLimpio = nombre.trim()
+        val descripcionLimpia = descripcion.trim()
+
+        if (
+            nombreLimpio.isBlank() ||
+            descripcionLimpia.isBlank() ||
+            fecha.isBlank() ||
+            hora.isBlank()
+        ) {
+            enviarMensaje(
+                false,
+                "Completa todos los campos del evento"
+            )
+            return
+        }
+
+        if (categoriaId <= 0) {
+            enviarMensaje(
+                false,
+                "Selecciona una categoría válida"
+            )
+            return
+        }
+
+        if (lugarId <= 0) {
+            enviarMensaje(
+                false,
+                "Selecciona un lugar válido"
+            )
+            return
+        }
+
         viewModelScope.launch {
-
-            if (
-                nombre.isBlank() ||
-                descripcion.isBlank() ||
-                fecha.isBlank() ||
-                hora.isBlank() ||
-                categoriaId <= 0 ||
-                lugarId <= 0
-            ) {
-                _mensajes.send(
-                    EventoMensaje(
-                        exitoso = false,
-                        texto = "Completa todos los campos"
-                    )
-                )
-                return@launch
-            }
-
             try {
 
                 val eventoActualizado = evento.copy(
-                    nombre = nombre.trim(),
-                    descripcion = descripcion.trim(),
-                    fecha = fecha.trim(),
-                    hora = hora.trim(),
+                    nombre = nombreLimpio,
+                    descripcion = descripcionLimpia,
+                    fecha = fecha,
+                    hora = hora,
                     categoriaId = categoriaId,
                     lugarId = lugarId
                 )
 
                 repository.actualizarEvento(eventoActualizado)
 
-                _mensajes.send(
+                mensajeChannel.send(
                     EventoMensaje(
                         exitoso = true,
                         texto = "Evento actualizado correctamente"
@@ -217,26 +273,25 @@ class EventoViewModel(
 
             } catch (e: Exception) {
 
-                _mensajes.send(
+                mensajeChannel.send(
                     EventoMensaje(
                         exitoso = false,
-                        texto = e.message
-                            ?: "Error al actualizar evento"
+                        texto = "No se pudo actualizar el evento"
                     )
                 )
             }
         }
     }
 
-    // ELIMINAR EVENTO
+    // Eliminar un evento
     fun eliminarEvento(evento: Evento) {
-        viewModelScope.launch {
 
+        viewModelScope.launch {
             try {
 
                 repository.eliminarEvento(evento)
 
-                _mensajes.send(
+                mensajeChannel.send(
                     EventoMensaje(
                         exitoso = true,
                         texto = "Evento eliminado correctamente"
@@ -245,14 +300,28 @@ class EventoViewModel(
 
             } catch (e: Exception) {
 
-                _mensajes.send(
+                mensajeChannel.send(
                     EventoMensaje(
                         exitoso = false,
-                        texto = e.message
-                            ?: "Error al eliminar evento"
+                        texto = "No se pudo eliminar el evento"
                     )
                 )
             }
+        }
+    }
+
+    // Enviar mensajes a la interfaz
+    private fun enviarMensaje(
+        exitoso: Boolean,
+        texto: String
+    ) {
+        viewModelScope.launch {
+            mensajeChannel.send(
+                EventoMensaje(
+                    exitoso = exitoso,
+                    texto = texto
+                )
+            )
         }
     }
 }

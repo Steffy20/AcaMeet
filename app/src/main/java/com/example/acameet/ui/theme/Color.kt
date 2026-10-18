@@ -1,11 +1,37 @@
+
 package com.example.acameet.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// COLOR PRINCIPAL DE ACAMEET
+val AzulPrincipal = Color(0xFF0798F2)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// TEMA OSCURO
+val FondoOscuro = Color(0xFF020B12)
+val FondoOscuroMedio = Color(0xFF03141F)
+val FondoOscuroInferior = Color(0xFF001D32)
+
+val TarjetaOscura = Color(0xFF0A1C28)
+val SuperficieOscura = Color(0xFF102B3B)
+
+val TextoOscuroPrincipal = Color.White
+val TextoOscuroSecundario = Color(0xFF9BA8B4)
+
+val BordeOscuro = Color(0xFF19384B)
+
+// TEMA CLARO
+val FondoClaro = Color(0xFFF3F7FA)
+val FondoClaroMedio = Color(0xFFEDF5FA)
+val FondoClaroInferior = Color(0xFFE2F0F9)
+
+val TarjetaClara = Color.White
+val SuperficieClara = Color(0xFFEAF1F5)
+
+val TextoClaroPrincipal = Color(0xFF152B3A)
+val TextoClaroSecundario = Color(0xFF657786)
+
+val BordeClaro = Color(0xFFDCE5EB)
+
+// COLORES DE ESTADO
+val ColorErrorOscuro = Color(0xFFF87171)
+val ColorErrorClaro = Color(0xFFB42318)

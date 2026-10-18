@@ -1,23 +1,25 @@
+
 package com.example.acameet.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.acameet.data.local.entity.Usuario
 
 @Dao
 interface UsuarioDao {
 
-    // Registrar un nuevo usuario
+    // REGISTRAR USUARIO
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertarUsuario(usuario: Usuario)
 
-    // Buscar un usuario por correo
+    // BUSCAR USUARIO POR CORREO
     @Query("SELECT * FROM usuarios WHERE correo = :correo LIMIT 1")
     suspend fun obtenerUsuarioPorCorreo(correo: String): Usuario?
 
-    // Validar correo y contraseña para iniciar sesión
+    // INICIAR SESIÓN
     @Query(
         "SELECT * FROM usuarios " +
                 "WHERE correo = :correo AND contrasena = :contrasena LIMIT 1"
@@ -26,4 +28,12 @@ interface UsuarioDao {
         correo: String,
         contrasena: String
     ): Usuario?
+
+    // OBTENER USUARIO POR ID
+    @Query("SELECT * FROM usuarios WHERE id = :id LIMIT 1")
+    suspend fun obtenerUsuarioPorId(id: Int): Usuario?
+
+    // ACTUALIZAR PERFIL O CONTRASEÑA
+    @Update
+    suspend fun actualizarUsuario(usuario: Usuario)
 }

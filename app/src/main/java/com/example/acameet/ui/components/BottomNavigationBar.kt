@@ -1,15 +1,12 @@
+
 package com.example.acameet.ui.components
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
@@ -18,18 +15,52 @@ fun BottomNavigationBar(
     pantallaActual: String,
     onInicioClick: () -> Unit = {},
     onCategoriasClick: () -> Unit = {},
-    onLugaresClick: () -> Unit = {},
+    onEventosClick: () -> Unit = {},
     onConfiguracionClick: () -> Unit = {}
 ) {
 
+    val colores = MaterialTheme.colorScheme
+
+    // Detectar el tema activo desde Theme.kt
+    val esOscuro = colores.background == Color(0xFF020B12)
+
+    // Azul original de AcaMeet
     val azul = Color(0xFF0798F2)
-    val gris = Color(0xFF9BA8B4)
-    val indicador = Color(0xFF102A3A)
+
+    // Colores según el tema
+    val fondo = if (esOscuro) {
+        Color(0xFF06141E)
+    } else {
+        Color.White
+    }
+
+    val gris = if (esOscuro) {
+        Color(0xFF9BA8B4)
+    } else {
+        Color(0xFF657786)
+    }
+
+    val indicador = if (esOscuro) {
+        Color(0xFF102E42)
+    } else {
+        Color(0xFFE2F0F9)
+    }
+
+    // Colores compartidos por todos los botones
+    val coloresBotones = NavigationBarItemDefaults.colors(
+        selectedIconColor = azul,
+        selectedTextColor = azul,
+        unselectedIconColor = gris,
+        unselectedTextColor = gris,
+        indicatorColor = indicador
+    )
 
     NavigationBar(
-        containerColor = Color(0xFF06141E)
+        containerColor = fondo,
+        contentColor = colores.onSurface
     ) {
 
+        // INICIO
         NavigationBarItem(
             selected = pantallaActual == "inicio",
             onClick = onInicioClick,
@@ -42,15 +73,10 @@ fun BottomNavigationBar(
             label = {
                 Text("Inicio")
             },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = azul,
-                selectedTextColor = azul,
-                indicatorColor = indicador,
-                unselectedIconColor = gris,
-                unselectedTextColor = gris
-            )
+            colors = coloresBotones
         )
 
+        // CATEGORÍAS
         NavigationBarItem(
             selected = pantallaActual == "categorias",
             onClick = onCategoriasClick,
@@ -63,36 +89,26 @@ fun BottomNavigationBar(
             label = {
                 Text("Categorías")
             },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = azul,
-                selectedTextColor = azul,
-                indicatorColor = indicador,
-                unselectedIconColor = gris,
-                unselectedTextColor = gris
-            )
+            colors = coloresBotones
         )
 
+        // EVENTOS
         NavigationBarItem(
-            selected = pantallaActual == "lugares",
-            onClick = onLugaresClick,
+            selected = pantallaActual == "eventos",
+            onClick = onEventosClick,
             icon = {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Lugares"
+                    imageVector = Icons.Default.Event,
+                    contentDescription = "Eventos"
                 )
             },
             label = {
-                Text("Lugares")
+                Text("Eventos")
             },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = azul,
-                selectedTextColor = azul,
-                indicatorColor = indicador,
-                unselectedIconColor = gris,
-                unselectedTextColor = gris
-            )
+            colors = coloresBotones
         )
 
+        // CONFIGURACIÓN
         NavigationBarItem(
             selected = pantallaActual == "configuracion",
             onClick = onConfiguracionClick,
@@ -105,13 +121,7 @@ fun BottomNavigationBar(
             label = {
                 Text("Configuración")
             },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = azul,
-                selectedTextColor = azul,
-                indicatorColor = indicador,
-                unselectedIconColor = gris,
-                unselectedTextColor = gris
-            )
+            colors = coloresBotones
         )
     }
 }

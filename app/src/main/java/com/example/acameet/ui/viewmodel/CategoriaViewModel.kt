@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 sealed interface CategoriaUiState {
+
     data object Loading : CategoriaUiState
 
     data class Success(
@@ -31,45 +32,69 @@ class CategoriaViewModel(
     private val repository: CategoriaRepository
 ) : ViewModel() {
 
-    val uiState: StateFlow<CategoriaUiState> =
-        repository.obtenerCategorias()
-            .map<List<Categoria>, CategoriaUiState> { lista ->
-                CategoriaUiState.Success(lista)
-            }
-            .catch { error ->
-                emit(
-                    CategoriaUiState.Error(
-                        error.message ?: "Error al cargar categorías"
-                    )
-                )
-            }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = CategoriaUiState.Loading
-            )
+    private val _procesando = MutableStateFlow(false)
 
     private val mensajeChannel =
         Channel<CategoriaMensaje>(Channel.BUFFERED)
 
     val mensajes = mensajeChannel.receiveAsFlow()
 
+    val uiState: StateFlow<CategoriaUiState> =
+        combine(
+            repository.obtenerCategorias(),
+            _procesando
+        ) { categorias, procesando ->
+
+            CategoriaUiState.Success(
+                categorias = categorias,
+                procesando = procesando
+            ) as CategoriaUiState
+
+        }.catch { error ->
+
+            emit(
+                CategoriaUiState.Error(
+                    error.message ?: "Error al cargar categorías"
+                )
+            )
+
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = CategoriaUiState.Loading
+        )
+
+    // REGISTRAR CATEGORÍA
     fun registrarCategoria(nombre: String) {
-        val nombreLimpio = nombre.trim()
+
+        val nombreLimpio = nombre
+            .trim()
+            .replace(Regex("\\s+"), " ")
 
         if (nombreLimpio.isBlank()) {
-            enviarMensaje(false, "Ingresa el nombre de la categoría")
+            enviarMensaje(
+                false,
+                "Ingresa el nombre de la categoría"
+            )
             return
         }
 
+        if (_procesando.value) return
+
         viewModelScope.launch {
+
+            _procesando.value = true
+
             try {
                 val existente =
                     repository.obtenerCategoriaPorNombre(nombreLimpio)
 
                 if (existente != null) {
                     mensajeChannel.send(
-                        CategoriaMensaje(false, "La categoría ya existe")
+                        CategoriaMensaje(
+                            false,
+                            "La categoría ya existe"
+                        )
                     )
                     return@launch
                 }
@@ -86,35 +111,58 @@ class CategoriaViewModel(
                 )
 
             } catch (e: Exception) {
+
                 mensajeChannel.send(
                     CategoriaMensaje(
                         false,
-                        "No se pudo registrar la categoría"
+                        "No se pudo registrar la categoría: " +
+                                (e.message ?: "Error desconocido")
                     )
                 )
+
+            } finally {
+                _procesando.value = false
             }
         }
     }
 
+    // ACTUALIZAR CATEGORÍA
     fun actualizarCategoria(
         categoria: Categoria,
         nuevoNombre: String
     ) {
-        val nombreLimpio = nuevoNombre.trim()
+
+        val nombreLimpio = nuevoNombre
+            .trim()
+            .replace(Regex("\\s+"), " ")
 
         if (nombreLimpio.isBlank()) {
-            enviarMensaje(false, "Ingresa el nombre de la categoría")
+            enviarMensaje(
+                false,
+                "Ingresa el nombre de la categoría"
+            )
             return
         }
 
+        if (_procesando.value) return
+
         viewModelScope.launch {
+
+            _procesando.value = true
+
             try {
                 val existente =
                     repository.obtenerCategoriaPorNombre(nombreLimpio)
 
-                if (existente != null && existente.id != categoria.id) {
+                if (
+                    existente != null &&
+                    existente.id != categoria.id
+                ) {
                     mensajeChannel.send(
-                        CategoriaMensaje(false, "La categoría ya existe")
+                        CategoriaMensaje(
+                            false,
+                            "La categoría ya existe"
+                        )
                     )
                     return@launch
                 }
@@ -131,18 +179,30 @@ class CategoriaViewModel(
                 )
 
             } catch (e: Exception) {
+
                 mensajeChannel.send(
                     CategoriaMensaje(
                         false,
-                        "No se pudo actualizar la categoría"
+                        "No se pudo actualizar la categoría: " +
+                                (e.message ?: "Error desconocido")
                     )
                 )
+
+            } finally {
+                _procesando.value = false
             }
         }
     }
 
+    // ELIMINAR CATEGORÍA
     fun eliminarCategoria(categoria: Categoria) {
+
+        if (_procesando.value) return
+
         viewModelScope.launch {
+
+            _procesando.value = true
+
             try {
                 repository.eliminarCategoria(categoria)
 
@@ -154,19 +214,29 @@ class CategoriaViewModel(
                 )
 
             } catch (e: Exception) {
+
                 mensajeChannel.send(
                     CategoriaMensaje(
                         false,
-                        "No se pudo eliminar la categoría"
+                        "No se pudo eliminar la categoría: " +
+                                (e.message ?: "Error desconocido")
                     )
                 )
+
+            } finally {
+                _procesando.value = false
             }
         }
     }
 
-    private fun enviarMensaje(exitoso: Boolean, texto: String) {
+    private fun enviarMensaje(
+        exitoso: Boolean,
+        texto: String
+    ) {
         viewModelScope.launch {
-            mensajeChannel.send(CategoriaMensaje(exitoso, texto))
+            mensajeChannel.send(
+                CategoriaMensaje(exitoso, texto)
+            )
         }
     }
 }

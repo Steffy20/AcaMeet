@@ -40,7 +40,7 @@ private val RojoLogin = Color(0xFFFF6B6B)
 @Composable
 fun LoginRoute(
     viewModel: UsuarioViewModel,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (Int) -> Unit,
     onNavigateToRegister: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -61,28 +61,33 @@ fun LoginRoute(
         mensajeError = mensajeError,
         correoValido = correoValido,
         formularioValido = formularioValido,
+
         onEmailChange = {
             email = it
             mensajeError = null
         },
+
         onPasswordChange = {
             password = it
             mensajeError = null
         },
+
         onLoginClick = {
             if (formularioValido) {
-                viewModel.iniciarSesion(
-                    email,
-                    password
-                ) { exito, mensaje ->
-                    if (exito) {
-                        onLoginSuccess()
+                viewModel.iniciarSesionConUsuario(
+                    correo = email,
+                    contrasena = password
+                ) { usuario, mensaje ->
+
+                    if (usuario != null) {
+                        onLoginSuccess(usuario.id)
                     } else {
                         mensajeError = mensaje
                     }
                 }
             }
         },
+
         onNavigateToRegister = onNavigateToRegister,
         modifier = modifier
     )
@@ -127,6 +132,7 @@ fun LoginContent(
                 .padding(top = 80.dp, bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Image(
                 painter = painterResource(R.drawable.acameet_logo),
                 contentDescription = "Logo de AcaMeet",
@@ -136,13 +142,16 @@ fun LoginContent(
 
             Spacer(Modifier.height((-35).dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     "Aca",
                     color = Color.White,
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold
                 )
+
                 Text(
                     "Meet",
                     color = AzulLogin,
@@ -185,7 +194,9 @@ fun LoginContent(
                 value = email,
                 onValueChange = onEmailChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Correo electrónico") },
+                label = {
+                    Text("Correo electrónico")
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Email,
@@ -221,7 +232,9 @@ fun LoginContent(
                 value = password,
                 onValueChange = onPasswordChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Contraseña") },
+                label = {
+                    Text("Contraseña")
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Lock,
@@ -259,8 +272,9 @@ fun LoginContent(
 
             if (mensajeError != null) {
                 Spacer(Modifier.height(12.dp))
+
                 Text(
-                    text = mensajeError,
+                    text = mensajeError ?: "",
                     color = RojoLogin,
                     fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth()
@@ -291,14 +305,18 @@ fun LoginContent(
 
             Spacer(Modifier.height(26.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     "¿No tienes una cuenta?",
                     color = GrisLogin,
                     fontSize = 14.sp
                 )
 
-                TextButton(onClick = onNavigateToRegister) {
+                TextButton(
+                    onClick = onNavigateToRegister
+                ) {
                     Text(
                         "Crear cuenta",
                         color = AzulLogin,

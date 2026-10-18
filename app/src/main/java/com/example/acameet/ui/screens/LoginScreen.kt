@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -36,7 +37,7 @@ private val GrisLogin = Color(0xFF9BA8B4)
 private val VerdeLogin = Color(0xFF4CAF50)
 private val RojoLogin = Color(0xFFFF6B6B)
 
-// STATEFUL
+// STATEFUL ROUTE
 @Composable
 fun LoginRoute(
     viewModel: UsuarioViewModel,
@@ -44,16 +45,29 @@ fun LoginRoute(
     onNavigateToRegister: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var password by remember {
+        mutableStateOf("")
+    }
+
     var mensajeError by remember {
         mutableStateOf<String?>(null)
+    }
+
+    var iniciandoSesion by remember {
+        mutableStateOf(false)
     }
 
     val correoValido = email.isNotBlank() &&
             Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
 
-    val formularioValido = correoValido && password.isNotEmpty()
+    val formularioValido =
+        correoValido &&
+                password.isNotEmpty() &&
+                !iniciandoSesion
 
     LoginContent(
         email = email,
@@ -61,23 +75,23 @@ fun LoginRoute(
         mensajeError = mensajeError,
         correoValido = correoValido,
         formularioValido = formularioValido,
-
         onEmailChange = {
             email = it
             mensajeError = null
         },
-
         onPasswordChange = {
             password = it
             mensajeError = null
         },
-
         onLoginClick = {
             if (formularioValido) {
+                iniciandoSesion = true
+
                 viewModel.iniciarSesionConUsuario(
-                    correo = email,
+                    correo = email.trim(),
                     contrasena = password
                 ) { usuario, mensaje ->
+                    iniciandoSesion = false
 
                     if (usuario != null) {
                         onLoginSuccess(usuario.id)
@@ -87,13 +101,12 @@ fun LoginRoute(
                 }
             }
         },
-
         onNavigateToRegister = onNavigateToRegister,
         modifier = modifier
     )
 }
 
-// STATELESS
+// STATELESS CONTENT
 @Composable
 fun LoginContent(
     email: String,
@@ -132,7 +145,6 @@ fun LoginContent(
                 .padding(top = 80.dp, bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
             Image(
                 painter = painterResource(R.drawable.acameet_logo),
                 contentDescription = "Logo de AcaMeet",
@@ -189,7 +201,7 @@ fun LoginContent(
 
             Spacer(Modifier.height(30.dp))
 
-            // CORREO
+            // CORREO ELECTRÓNICO
             OutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
@@ -253,7 +265,11 @@ fun LoginContent(
                             } else {
                                 Icons.Default.VisibilityOff
                             },
-                            contentDescription = "Mostrar contraseña"
+                            contentDescription = if (mostrarContrasena) {
+                                "Ocultar contraseña"
+                            } else {
+                                "Mostrar contraseña"
+                            }
                         )
                     }
                 },
@@ -274,7 +290,7 @@ fun LoginContent(
                 Spacer(Modifier.height(12.dp))
 
                 Text(
-                    text = mensajeError ?: "",
+                    text = mensajeError,
                     color = RojoLogin,
                     fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth()
@@ -283,6 +299,7 @@ fun LoginContent(
 
             Spacer(Modifier.height(30.dp))
 
+            // BOTÓN INICIAR SESIÓN
             Button(
                 onClick = onLoginClick,
                 enabled = formularioValido,
@@ -305,6 +322,7 @@ fun LoginContent(
 
             Spacer(Modifier.height(26.dp))
 
+            // IR A REGISTRO
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -328,6 +346,7 @@ fun LoginContent(
     }
 }
 
+// MENSAJES DE VALIDACIÓN
 @Composable
 private fun MensajeLogin(
     texto: String,
@@ -341,6 +360,7 @@ private fun MensajeLogin(
     )
 }
 
+// COLORES ORIGINALES DE LOS CAMPOS
 @Composable
 private fun coloresLoginTiempoReal() =
     OutlinedTextFieldDefaults.colors(

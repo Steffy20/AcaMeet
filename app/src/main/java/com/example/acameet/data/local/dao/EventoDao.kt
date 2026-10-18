@@ -12,41 +12,67 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface EventoDao {
 
-    // Obtener todos los eventos
-    @Query("SELECT * FROM eventos ORDER BY fecha ASC, hora ASC")
+    // OBTENER TODOS LOS EVENTOS
+    // Los eventos se muestran ordenados por fecha y hora.
+    @Query(
+        """
+        SELECT * FROM eventos
+        ORDER BY fecha ASC, hora ASC
+        """
+    )
     fun obtenerEventos(): Flow<List<Evento>>
 
-    // Obtener un evento por su ID
-    @Query("SELECT * FROM eventos WHERE id = :id LIMIT 1")
-    suspend fun obtenerEventoPorId(id: Int): Evento?
+    // OBTENER UN EVENTO POR SU ID
+    @Query(
+        """
+        SELECT * FROM eventos
+        WHERE id = :id
+        LIMIT 1
+        """
+    )
+    suspend fun obtenerEventoPorId(
+        id: Int
+    ): Evento?
 
-    // Registrar un nuevo evento
+    // REGISTRAR UN NUEVO EVENTO
     @Insert
-    suspend fun insertarEvento(evento: Evento)
+    suspend fun insertarEvento(
+        evento: Evento
+    )
 
-    // Actualizar un evento existente
+    // ACTUALIZAR UN EVENTO EXISTENTE
     @Update
-    suspend fun actualizarEvento(evento: Evento)
+    suspend fun actualizarEvento(
+        evento: Evento
+    )
 
-    // Eliminar un evento
+    // ELIMINAR UN EVENTO
     @Delete
-    suspend fun eliminarEvento(evento: Evento)
+    suspend fun eliminarEvento(
+        evento: Evento
+    )
 
-    // Buscar eventos por nombre o descripción
-    @Query("""
+    // BUSCAR EVENTOS POR NOMBRE O DESCRIPCIÓN
+    @Query(
+        """
         SELECT * FROM eventos
         WHERE nombre LIKE '%' || :texto || '%'
            OR descripcion LIKE '%' || :texto || '%'
         ORDER BY fecha ASC, hora ASC
-    """)
-    fun buscarEventos(texto: String): Flow<List<Evento>>
+        """
+    )
+    fun buscarEventos(
+        texto: String
+    ): Flow<List<Evento>>
 
-    // Filtrar eventos por categoría
-    @Query("""
+    // FILTRAR EVENTOS POR CATEGORÍA
+    @Query(
+        """
         SELECT * FROM eventos
         WHERE categoriaId = :categoriaId
         ORDER BY fecha ASC, hora ASC
-    """)
+        """
+    )
     fun obtenerEventosPorCategoria(
         categoriaId: Int
     ): Flow<List<Evento>>

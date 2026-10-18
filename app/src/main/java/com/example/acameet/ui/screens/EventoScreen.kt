@@ -43,10 +43,14 @@ private val RojoEvOscuro = Color(0xFFE57373)
 @Composable
 private fun colorErrorEv(): Color {
     val colores = MaterialTheme.colorScheme
-    return if (colores.background == Color(0xFF020B12))
-        RojoEvOscuro else colores.error
+    return if (colores.background == Color(0xFF020B12)) {
+        RojoEvOscuro
+    } else {
+        colores.error
+    }
 }
 
+// COMPATIBILIDAD CON APPNAVIGATION
 @Composable
 fun EventoScreen(
     viewModel: EventoViewModel,
@@ -54,6 +58,185 @@ fun EventoScreen(
     lugarViewModel: LugarViewModel,
     pantallaInicial: String = "lista",
     eventoIdInicial: Int? = null,
+    onInicioClick: () -> Unit = {},
+    onCategoriasClick: () -> Unit = {},
+    onConfiguracionClick: () -> Unit = {}
+) {
+    EventoRoute(
+        viewModel = viewModel,
+        categoriaViewModel = categoriaViewModel,
+        lugarViewModel = lugarViewModel,
+        pantallaInicial = pantallaInicial,
+        eventoIdInicial = eventoIdInicial,
+        onInicioClick = onInicioClick,
+        onCategoriasClick = onCategoriasClick,
+        onConfiguracionClick = onConfiguracionClick
+    )
+}
+
+// STATEFUL ROUTE
+@Composable
+fun EventoRoute(
+    viewModel: EventoViewModel,
+    categoriaViewModel: CategoriaViewModel,
+    lugarViewModel: LugarViewModel,
+    pantallaInicial: String = "lista",
+    eventoIdInicial: Int? = null,
+    onInicioClick: () -> Unit = {},
+    onCategoriasClick: () -> Unit = {},
+    onConfiguracionClick: () -> Unit = {}
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val busqueda by viewModel.busqueda.collectAsStateWithLifecycle()
+    val categoriaState by categoriaViewModel.uiState.collectAsStateWithLifecycle()
+    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
+
+    val categorias = when (val estado = categoriaState) {
+        is CategoriaUiState.Success -> estado.categorias
+        else -> emptyList()
+    }
+
+    var pantalla by remember(pantallaInicial, eventoIdInicial) {
+        mutableStateOf(pantallaInicial)
+    }
+
+    var seleccionado by remember(pantallaInicial, eventoIdInicial) {
+        mutableStateOf<Evento?>(null)
+    }
+
+    var eliminar by remember {
+        mutableStateOf<Evento?>(null)
+    }
+
+    var mensaje by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var categoriaFiltro by remember {
+        mutableStateOf<Int?>(null)
+    }
+
+    LaunchedEffect(eventoIdInicial) {
+        if (eventoIdInicial != null) {
+            try {
+                val evento = viewModel.obtenerEventoParaPantalla(
+                    eventoIdInicial
+                )
+
+                if (evento != null) {
+                    seleccionado = evento
+                    pantalla = "detalle"
+                } else {
+                    pantalla = "lista"
+                    mensaje = "El evento ya no está disponible"
+                }
+            } catch (_: Exception) {
+                pantalla = "lista"
+                mensaje = "No se pudo cargar el evento"
+            }
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.mensajes.collect { resultado ->
+            mensaje = resultado.texto
+
+            if (resultado.exitoso) {
+                pantalla = "lista"
+                seleccionado = null
+                eliminar = null
+            }
+        }
+    }
+
+    EventoContent(
+        uiState = uiState,
+        busqueda = busqueda,
+        categorias = categorias,
+        lugares = lugares,
+        pantalla = pantalla,
+        seleccionado = seleccionado,
+        eliminar = eliminar,
+        mensaje = mensaje,
+        categoriaFiltro = categoriaFiltro,
+        onPantallaChange = { pantalla = it },
+        onSeleccionadoChange = { seleccionado = it },
+        onEliminarChange = { eliminar = it },
+        onMensajeChange = { mensaje = it },
+        onCategoriaFiltroChange = { categoriaFiltro = it },
+        onBusquedaChange = viewModel::actualizarBusqueda,
+        onRegistrarLugar = { nombre, onResultado ->
+            lugarViewModel.registrarLugar(
+                Lugar(nombre = nombre),
+                onResultado
+            )
+        },
+        onGuardarEvento = {
+                eventoInicial,
+                nombre,
+                descripcion,
+                fecha,
+                hora,
+                categoriaId,
+                lugarId ->
+
+            if (eventoInicial == null) {
+                viewModel.registrarEvento(
+                    nombre = nombre,
+                    descripcion = descripcion,
+                    fecha = fecha,
+                    hora = hora,
+                    categoriaId = categoriaId,
+                    lugarId = lugarId
+                )
+            } else {
+                viewModel.actualizarEvento(
+                    evento = eventoInicial,
+                    nombre = nombre,
+                    descripcion = descripcion,
+                    fecha = fecha,
+                    hora = hora,
+                    categoriaId = categoriaId,
+                    lugarId = lugarId
+                )
+            }
+        },
+        onEliminarEvento = viewModel::eliminarEvento,
+        onInicioClick = onInicioClick,
+        onCategoriasClick = onCategoriasClick,
+        onConfiguracionClick = onConfiguracionClick
+    )
+}
+
+// STATELESS CONTENT
+@Composable
+fun EventoContent(
+    uiState: EventoUiState,
+    busqueda: String,
+    categorias: List<Categoria>,
+    lugares: List<Lugar>,
+    pantalla: String,
+    seleccionado: Evento?,
+    eliminar: Evento?,
+    mensaje: String?,
+    categoriaFiltro: Int?,
+    onPantallaChange: (String) -> Unit,
+    onSeleccionadoChange: (Evento?) -> Unit,
+    onEliminarChange: (Evento?) -> Unit,
+    onMensajeChange: (String?) -> Unit,
+    onCategoriaFiltroChange: (Int?) -> Unit,
+    onBusquedaChange: (String) -> Unit,
+    onRegistrarLugar: (String, (Boolean, String) -> Unit) -> Unit,
+    onGuardarEvento: (
+        Evento?,
+        String,
+        String,
+        String,
+        String,
+        Int,
+        Int
+    ) -> Unit,
+    onEliminarEvento: (Evento) -> Unit,
     onInicioClick: () -> Unit = {},
     onCategoriasClick: () -> Unit = {},
     onConfiguracionClick: () -> Unit = {}
@@ -78,55 +261,6 @@ fun EventoScreen(
         }
     )
 
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val busqueda by viewModel.busqueda.collectAsStateWithLifecycle()
-    val categoriaState by categoriaViewModel.uiState.collectAsStateWithLifecycle()
-    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
-
-    val categorias = when (val estado = categoriaState) {
-        is CategoriaUiState.Success -> estado.categorias
-        else -> emptyList()
-    }
-
-    var pantalla by remember(pantallaInicial, eventoIdInicial) {
-        mutableStateOf(pantallaInicial)
-    }
-    var seleccionado by remember(pantallaInicial, eventoIdInicial) {
-        mutableStateOf<Evento?>(null)
-    }
-    var eliminar by remember { mutableStateOf<Evento?>(null) }
-    var mensaje by remember { mutableStateOf<String?>(null) }
-    var categoriaFiltro by remember { mutableStateOf<Int?>(null) }
-
-    LaunchedEffect(eventoIdInicial) {
-        if (eventoIdInicial != null) {
-            try {
-                val evento = viewModel.obtenerEventoParaPantalla(eventoIdInicial)
-                if (evento != null) {
-                    seleccionado = evento
-                    pantalla = "detalle"
-                } else {
-                    pantalla = "lista"
-                    mensaje = "El evento ya no está disponible"
-                }
-            } catch (_: Exception) {
-                pantalla = "lista"
-                mensaje = "No se pudo cargar el evento"
-            }
-        }
-    }
-
-    LaunchedEffect(viewModel) {
-        viewModel.mensajes.collect { resultado ->
-            mensaje = resultado.texto
-            if (resultado.exitoso) {
-                pantalla = "lista"
-                seleccionado = null
-                eliminar = null
-            }
-        }
-    }
-
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
@@ -141,13 +275,16 @@ fun EventoScreen(
             if (pantalla == "lista") {
                 FloatingActionButton(
                     onClick = {
-                        seleccionado = null
-                        pantalla = "crear"
+                        onSeleccionadoChange(null)
+                        onPantallaChange("crear")
                     },
                     containerColor = AzulEv,
                     contentColor = Color.White
                 ) {
-                    Icon(Icons.Default.Add, "Crear evento")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Crear evento"
+                    )
                 }
             }
         }
@@ -162,25 +299,30 @@ fun EventoScreen(
             Spacer(Modifier.height(24.dp))
 
             when (pantalla) {
+
                 "lista" -> {
                     Text(
-                        "Eventos",
+                        text = "Eventos",
                         color = colores.onBackground,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
+
                     Text(
-                        "Administra los eventos académicos",
+                        text = "Administra los eventos académicos",
                         color = colores.onSurfaceVariant,
                         fontSize = 14.sp
                     )
+
                     Spacer(Modifier.height(18.dp))
 
                     OutlinedTextField(
                         value = busqueda,
-                        onValueChange = viewModel::actualizarBusqueda,
+                        onValueChange = onBusquedaChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Buscar eventos...") },
+                        placeholder = {
+                            Text("Buscar eventos...")
+                        },
                         leadingIcon = {
                             Icon(Icons.Default.Search, null)
                         },
@@ -202,7 +344,7 @@ fun EventoScreen(
                     FiltroCategoriaEv(
                         categorias = categorias,
                         seleccion = categoriaFiltro,
-                        onSeleccionar = { categoriaFiltro = it }
+                        onSeleccionar = onCategoriaFiltroChange
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -210,15 +352,20 @@ fun EventoScreen(
                     when (val estado = uiState) {
                         is EventoUiState.Loading -> {
                             Box(
-                                Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = AzulEv)
+                                CircularProgressIndicator(
+                                    color = AzulEv
+                                )
                             }
                         }
 
                         is EventoUiState.Error -> {
-                            Text(estado.mensaje, color = rojo)
+                            Text(
+                                text = estado.mensaje,
+                                color = rojo
+                            )
                         }
 
                         is EventoUiState.Success -> {
@@ -229,26 +376,32 @@ fun EventoScreen(
 
                             if (eventos.isEmpty()) {
                                 Box(
-                                    Modifier.fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "No hay eventos para mostrar",
+                                        text = "No hay eventos para mostrar",
                                         color = colores.onSurfaceVariant
                                     )
                                 }
                             } else {
                                 LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 90.dp)
+                                    verticalArrangement =
+                                        Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(
+                                        bottom = 90.dp
+                                    )
                                 ) {
-                                    items(eventos, key = { it.id }) { evento ->
+                                    items(
+                                        items = eventos,
+                                        key = { it.id }
+                                    ) { evento ->
                                         Card(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clickable {
-                                                    seleccionado = evento
-                                                    pantalla = "detalle"
+                                                    onSeleccionadoChange(evento)
+                                                    onPantallaChange("detalle")
                                                 },
                                             shape = RoundedCornerShape(18.dp),
                                             colors = CardDefaults.cardColors(
@@ -257,37 +410,46 @@ fun EventoScreen(
                                         ) {
                                             Row(
                                                 modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment =
+                                                    Alignment.CenterVertically
                                             ) {
                                                 Icon(
-                                                    Icons.Default.Event,
-                                                    null,
+                                                    imageVector = Icons.Default.Event,
+                                                    contentDescription = null,
                                                     tint = AzulEv,
                                                     modifier = Modifier.size(40.dp)
                                                 )
+
                                                 Spacer(Modifier.width(12.dp))
-                                                Column(Modifier.weight(1f)) {
+
+                                                Column(
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
                                                     Text(
-                                                        evento.nombre,
+                                                        text = evento.nombre,
                                                         color = colores.onSurface,
                                                         fontWeight = FontWeight.Bold
                                                     )
+
                                                     Text(
-                                                        evento.descripcion,
+                                                        text = evento.descripcion,
                                                         color = colores.onSurfaceVariant,
                                                         fontSize = 13.sp,
                                                         maxLines = 2
                                                     )
+
                                                     Spacer(Modifier.height(5.dp))
+
                                                     Text(
-                                                        "${evento.fecha} • ${evento.hora}",
+                                                        text = "${evento.fecha} • ${evento.hora}",
                                                         color = AzulEv,
                                                         fontSize = 12.sp
                                                     )
                                                 }
+
                                                 Icon(
-                                                    Icons.Default.ChevronRight,
-                                                    "Ver detalle",
+                                                    imageVector = Icons.Default.ChevronRight,
+                                                    contentDescription = "Ver detalle",
                                                     tint = AzulEv
                                                 )
                                             }
@@ -301,15 +463,19 @@ fun EventoScreen(
 
                 "detalle" -> {
                     seleccionado?.let { evento ->
-                        EncabezadoEv("Detalle del evento") {
-                            pantalla = "lista"
-                        }
+                        EncabezadoEv(
+                            titulo = "Detalle del evento",
+                            onVolver = {
+                                onPantallaChange("lista")
+                            }
+                        )
 
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                            verticalArrangement =
+                                Arrangement.spacedBy(16.dp)
                         ) {
                             Card(
                                 colors = CardDefaults.cardColors(
@@ -318,32 +484,39 @@ fun EventoScreen(
                                 shape = RoundedCornerShape(18.dp)
                             ) {
                                 Column(
-                                    Modifier.padding(20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    modifier = Modifier.padding(20.dp),
+                                    verticalArrangement =
+                                        Arrangement.spacedBy(12.dp)
                                 ) {
                                     Text(
-                                        evento.nombre,
+                                        text = evento.nombre,
                                         color = colores.onSurface,
                                         fontSize = 23.sp,
                                         fontWeight = FontWeight.Bold
                                     )
+
                                     Text(
-                                        evento.descripcion,
+                                        text = evento.descripcion,
                                         color = colores.onSurfaceVariant
                                     )
-                                    HorizontalDivider(color = colores.outline)
+
+                                    HorizontalDivider(
+                                        color = colores.outline
+                                    )
 
                                     DatoEv(
-                                        "Categoría",
-                                        categorias.find {
+                                        etiqueta = "Categoría",
+                                        valor = categorias.find {
                                             it.id == evento.categoriaId
                                         }?.nombre ?: "Categoría no disponible"
                                     )
+
                                     DatoEv("Fecha", evento.fecha)
                                     DatoEv("Hora", evento.hora)
+
                                     DatoEv(
-                                        "Lugar",
-                                        lugares.find {
+                                        etiqueta = "Lugar",
+                                        valor = lugares.find {
                                             it.id == evento.lugarId
                                         }?.nombre ?: "Lugar no disponible"
                                     )
@@ -351,28 +524,42 @@ fun EventoScreen(
                             }
 
                             Button(
-                                onClick = { pantalla = "editar" },
+                                onClick = {
+                                    onPantallaChange("editar")
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = AzulEv
                                 )
                             ) {
-                                Icon(Icons.Default.Edit, null)
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null
+                                )
+
                                 Spacer(Modifier.width(8.dp))
+
                                 Text("Editar evento")
                             }
 
                             OutlinedButton(
-                                onClick = { eliminar = evento },
+                                onClick = {
+                                    onEliminarChange(evento)
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    null,
+                                    contentDescription = null,
                                     tint = rojo
                                 )
+
                                 Spacer(Modifier.width(8.dp))
-                                Text("Eliminar evento", color = rojo)
+
+                                Text(
+                                    "Eliminar evento",
+                                    color = rojo
+                                )
                             }
                         }
                     }
@@ -383,49 +570,53 @@ fun EventoScreen(
                         if (pantalla == "editar") seleccionado else null
 
                     EncabezadoEv(
-                        if (eventoInicial == null) "Crear evento"
-                        else "Editar evento"
-                    ) {
-                        pantalla =
-                            if (eventoInicial == null) "lista" else "detalle"
-                    }
+                        titulo = if (eventoInicial == null) {
+                            "Crear evento"
+                        } else {
+                            "Editar evento"
+                        },
+                        onVolver = {
+                            onPantallaChange(
+                                if (eventoInicial == null) {
+                                    "lista"
+                                } else {
+                                    "detalle"
+                                }
+                            )
+                        }
+                    )
 
                     FormularioEv(
                         eventoInicial = eventoInicial,
                         categorias = categorias,
                         lugares = lugares,
-                        onRegistrarLugar = { nombre, onResultado ->
-                            lugarViewModel.registrarLugar(
-                                Lugar(nombre = nombre),
-                                onResultado
+                        onRegistrarLugar = onRegistrarLugar,
+                        onCancelar = {
+                            onPantallaChange(
+                                if (eventoInicial == null) {
+                                    "lista"
+                                } else {
+                                    "detalle"
+                                }
                             )
                         },
-                        onCancelar = {
-                            pantalla =
-                                if (eventoInicial == null) "lista" else "detalle"
-                        },
-                        onGuardar = { nombre, descripcion, fecha, hora,
-                                      categoriaId, lugarId ->
-                            if (eventoInicial == null) {
-                                viewModel.registrarEvento(
-                                    nombre = nombre,
-                                    descripcion = descripcion,
-                                    fecha = fecha,
-                                    hora = hora,
-                                    categoriaId = categoriaId,
-                                    lugarId = lugarId
-                                )
-                            } else {
-                                viewModel.actualizarEvento(
-                                    evento = eventoInicial,
-                                    nombre = nombre,
-                                    descripcion = descripcion,
-                                    fecha = fecha,
-                                    hora = hora,
-                                    categoriaId = categoriaId,
-                                    lugarId = lugarId
-                                )
-                            }
+                        onGuardar = {
+                                nombre,
+                                descripcion,
+                                fecha,
+                                hora,
+                                categoriaId,
+                                lugarId ->
+
+                            onGuardarEvento(
+                                eventoInicial,
+                                nombre,
+                                descripcion,
+                                fecha,
+                                hora,
+                                categoriaId,
+                                lugarId
+                            )
                         }
                     )
                 }
@@ -435,24 +626,42 @@ fun EventoScreen(
 
     eliminar?.let { evento ->
         AlertDialog(
-            onDismissRequest = { eliminar = null },
+            onDismissRequest = {
+                onEliminarChange(null)
+            },
             containerColor = colores.surface,
             titleContentColor = colores.onSurface,
             textContentColor = colores.onSurfaceVariant,
-            title = { Text("Eliminar evento") },
+            title = {
+                Text("Eliminar evento")
+            },
             text = {
-                Text("¿Deseas eliminar el evento \"${evento.nombre}\"?")
+                Text(
+                    "¿Deseas eliminar el evento \"${evento.nombre}\"?"
+                )
             },
             confirmButton = {
                 TextButton(
-                    onClick = { viewModel.eliminarEvento(evento) }
+                    onClick = {
+                        onEliminarEvento(evento)
+                    }
                 ) {
-                    Text("Eliminar", color = rojo)
+                    Text(
+                        "Eliminar",
+                        color = rojo
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { eliminar = null }) {
-                    Text("Cancelar", color = colores.onSurfaceVariant)
+                TextButton(
+                    onClick = {
+                        onEliminarChange(null)
+                    }
+                ) {
+                    Text(
+                        "Cancelar",
+                        color = colores.onSurfaceVariant
+                    )
                 }
             }
         )
@@ -460,21 +669,35 @@ fun EventoScreen(
 
     mensaje?.let { texto ->
         AlertDialog(
-            onDismissRequest = { mensaje = null },
+            onDismissRequest = {
+                onMensajeChange(null)
+            },
             containerColor = colores.surface,
             titleContentColor = colores.onSurface,
             textContentColor = colores.onSurfaceVariant,
-            title = { Text("AcaMeet") },
-            text = { Text(texto) },
+            title = {
+                Text("AcaMeet")
+            },
+            text = {
+                Text(texto)
+            },
             confirmButton = {
-                TextButton(onClick = { mensaje = null }) {
-                    Text("Aceptar", color = AzulEv)
+                TextButton(
+                    onClick = {
+                        onMensajeChange(null)
+                    }
+                ) {
+                    Text(
+                        "Aceptar",
+                        color = AzulEv
+                    )
                 }
             }
         )
     }
 }
 
+// ENCABEZADO
 @Composable
 private fun EncabezadoEv(
     titulo: String,
@@ -482,24 +705,29 @@ private fun EncabezadoEv(
 ) {
     val colores = MaterialTheme.colorScheme
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         IconButton(onClick = onVolver) {
             Icon(
                 Icons.Default.ArrowBack,
-                "Volver",
+                contentDescription = "Volver",
                 tint = AzulEv
             )
         }
+
         Text(
-            titulo,
+            text = titulo,
             color = colores.onBackground,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
     }
+
     Spacer(Modifier.height(16.dp))
 }
 
+// DATO DEL EVENTO
 @Composable
 private fun DatoEv(
     etiqueta: String,
@@ -509,51 +737,72 @@ private fun DatoEv(
 
     Column {
         Text(
-            etiqueta,
+            text = etiqueta,
             color = AzulEv,
             fontSize = 13.sp
         )
-        Text(valor, color = colores.onSurface)
+
+        Text(
+            text = valor,
+            color = colores.onSurface
+        )
     }
 }
 
+// FILTRO DE CATEGORÍAS
 @Composable
 private fun FiltroCategoriaEv(
     categorias: List<Categoria>,
     seleccion: Int?,
     onSeleccionar: (Int?) -> Unit
 ) {
-    var expandido by remember { mutableStateOf(false) }
+    var expandido by remember {
+        mutableStateOf(false)
+    }
 
     Box {
-        OutlinedButton(onClick = { expandido = true }) {
+        OutlinedButton(
+            onClick = {
+                expandido = true
+            }
+        ) {
             Text(
-                categorias.find { it.id == seleccion }?.nombre
-                    ?: "Todas las categorías",
+                text = categorias.find {
+                    it.id == seleccion
+                }?.nombre ?: "Todas las categorías",
                 color = AzulEv
             )
+
             Spacer(Modifier.width(8.dp))
+
             Icon(
                 Icons.Default.ArrowDropDown,
-                null,
+                contentDescription = null,
                 tint = AzulEv
             )
         }
 
         DropdownMenu(
             expanded = expandido,
-            onDismissRequest = { expandido = false }
+            onDismissRequest = {
+                expandido = false
+            }
         ) {
             DropdownMenuItem(
-                text = { Text("Todas las categorías") },
+                text = {
+                    Text("Todas las categorías")
+                },
                 onClick = {
                     onSeleccionar(null)
                     expandido = false
                 }
             )
+
             categorias.forEach { categoria ->
                 DropdownMenuItem(
-                    text = { Text(categoria.nombre) },
+                    text = {
+                        Text(categoria.nombre)
+                    },
                     onClick = {
                         onSeleccionar(categoria.id)
                         expandido = false
@@ -564,6 +813,7 @@ private fun FiltroCategoriaEv(
     }
 }
 
+// SELECTOR DE CATEGORÍAS Y LUGARES
 @Composable
 private fun <T> SelectorEv(
     etiqueta: String,
@@ -574,7 +824,10 @@ private fun <T> SelectorEv(
     onSeleccionar: (Int) -> Unit
 ) {
     val colores = MaterialTheme.colorScheme
-    var mostrarDialogo by remember { mutableStateOf(false) }
+
+    var mostrarDialogo by remember {
+        mutableStateOf(false)
+    }
 
     val nombreSeleccionado = opciones.find {
         obtenerId(it) == seleccionadoId
@@ -582,25 +835,29 @@ private fun <T> SelectorEv(
 
     Column {
         Text(
-            etiqueta,
+            text = etiqueta,
             color = AzulEv,
             fontWeight = FontWeight.Bold
         )
+
         Spacer(Modifier.height(6.dp))
 
         OutlinedButton(
-            onClick = { mostrarDialogo = true },
+            onClick = {
+                mostrarDialogo = true
+            },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp)
         ) {
             Text(
-                nombreSeleccionado,
+                text = nombreSeleccionado,
                 modifier = Modifier.weight(1f),
                 color = colores.onBackground
             )
+
             Icon(
                 Icons.Default.ArrowDropDown,
-                "Seleccionar $etiqueta",
+                contentDescription = "Seleccionar $etiqueta",
                 tint = AzulEv
             )
         }
@@ -608,11 +865,15 @@ private fun <T> SelectorEv(
 
     if (mostrarDialogo) {
         AlertDialog(
-            onDismissRequest = { mostrarDialogo = false },
+            onDismissRequest = {
+                mostrarDialogo = false
+            },
             containerColor = colores.surface,
             titleContentColor = colores.onSurface,
             textContentColor = colores.onSurfaceVariant,
-            title = { Text("Seleccionar $etiqueta") },
+            title = {
+                Text("Seleccionar $etiqueta")
+            },
             text = {
                 if (opciones.isEmpty()) {
                     Text("No hay registros disponibles")
@@ -626,13 +887,15 @@ private fun <T> SelectorEv(
                         opciones.forEach { opcion ->
                             TextButton(
                                 onClick = {
-                                    onSeleccionar(obtenerId(opcion))
+                                    onSeleccionar(
+                                        obtenerId(opcion)
+                                    )
                                     mostrarDialogo = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    obtenerNombre(opcion),
+                                    text = obtenerNombre(opcion),
                                     color = colores.onSurface,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -642,14 +905,22 @@ private fun <T> SelectorEv(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { mostrarDialogo = false }) {
-                    Text("Cerrar", color = AzulEv)
+                TextButton(
+                    onClick = {
+                        mostrarDialogo = false
+                    }
+                ) {
+                    Text(
+                        "Cerrar",
+                        color = AzulEv
+                    )
                 }
             }
         )
     }
 }
 
+// FORMULARIO COMPLETO DE EVENTOS
 @Composable
 private fun FormularioEv(
     eventoInicial: Evento?,
@@ -666,21 +937,27 @@ private fun FormularioEv(
     var nombre by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.nombre ?: "")
     }
+
     var descripcion by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.descripcion ?: "")
     }
+
     var fecha by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.fecha ?: "")
     }
+
     var hora by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.hora ?: "")
     }
+
     var categoriaId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.categoriaId)
     }
+
     var lugarId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.lugarId)
     }
+
     var error by remember(eventoInicial) {
         mutableStateOf<String?>(null)
     }
@@ -688,18 +965,24 @@ private fun FormularioEv(
     var mostrarRegistrarLugar by remember {
         mutableStateOf(false)
     }
+
     var nuevoLugar by remember {
         mutableStateOf("")
     }
+
     var guardandoLugar by remember {
         mutableStateOf(false)
     }
+
     var mensajeLugar by remember {
         mutableStateOf<String?>(null)
     }
 
     val formato = remember {
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        SimpleDateFormat(
+            "yyyy-MM-dd",
+            Locale.US
+        ).apply {
             isLenient = false
         }
     }
@@ -711,7 +994,7 @@ private fun FormularioEv(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            "Información general",
+            text = "Información general",
             color = AzulEv,
             fontWeight = FontWeight.Bold
         )
@@ -722,7 +1005,9 @@ private fun FormularioEv(
                 nombre = it
                 error = null
             },
-            label = { Text("Título del evento *") },
+            label = {
+                Text("Título del evento *")
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
@@ -738,7 +1023,9 @@ private fun FormularioEv(
                 descripcion = it
                 error = null
             },
-            label = { Text("Descripción *") },
+            label = {
+                Text("Descripción *")
+            },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
             colors = OutlinedTextFieldDefaults.colors(
@@ -761,7 +1048,7 @@ private fun FormularioEv(
         )
 
         Text(
-            "Fecha y hora",
+            text = "Fecha y hora",
             color = AzulEv,
             fontWeight = FontWeight.Bold
         )
@@ -805,6 +1092,7 @@ private fun FormularioEv(
                             set(Calendar.SECOND, 0)
                             set(Calendar.MILLISECOND, 0)
                         }
+
                         dialogo.datePicker.minDate = hoy.timeInMillis
                     }
 
@@ -814,12 +1102,14 @@ private fun FormularioEv(
             ) {
                 Icon(
                     Icons.Default.Event,
-                    null,
+                    contentDescription = null,
                     tint = AzulEv
                 )
+
                 Spacer(Modifier.width(4.dp))
+
                 Text(
-                    fecha.ifBlank { "Fecha" },
+                    text = fecha.ifBlank { "Fecha" },
                     fontSize = 12.sp,
                     color = colores.onBackground
                 )
@@ -852,12 +1142,14 @@ private fun FormularioEv(
             ) {
                 Icon(
                     Icons.Default.Schedule,
-                    null,
+                    contentDescription = null,
                     tint = AzulEv
                 )
+
                 Spacer(Modifier.width(4.dp))
+
                 Text(
-                    hora.ifBlank { "Hora" },
+                    text = hora.ifBlank { "Hora" },
                     fontSize = 12.sp,
                     color = colores.onBackground
                 )
@@ -888,16 +1180,18 @@ private fun FormularioEv(
                 contentDescription = null,
                 tint = AzulEv
             )
+
             Spacer(Modifier.width(6.dp))
+
             Text(
-                "+ Registrar nuevo lugar",
+                text = "+ Registrar nuevo lugar",
                 color = AzulEv
             )
         }
 
         if (lugares.isEmpty()) {
             Text(
-                "Todavía no hay lugares registrados. " +
+                text = "Todavía no hay lugares registrados. " +
                         "Registra uno para continuar.",
                 color = colores.onSurfaceVariant,
                 fontSize = 12.sp
@@ -906,7 +1200,7 @@ private fun FormularioEv(
 
         error?.let {
             Text(
-                it,
+                text = it,
                 color = rojo,
                 fontSize = 13.sp
             )
@@ -985,8 +1279,11 @@ private fun FormularioEv(
             )
         ) {
             Text(
-                if (eventoInicial == null) "Crear evento"
-                else "Guardar cambios"
+                text = if (eventoInicial == null) {
+                    "Crear evento"
+                } else {
+                    "Guardar cambios"
+                }
             )
         }
 
@@ -995,7 +1292,7 @@ private fun FormularioEv(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                "Cancelar",
+                text = "Cancelar",
                 color = colores.onSurfaceVariant
             )
         }
@@ -1003,6 +1300,7 @@ private fun FormularioEv(
         Spacer(Modifier.height(24.dp))
     }
 
+    // REGISTRAR NUEVO LUGAR
     if (mostrarRegistrarLugar) {
         AlertDialog(
             onDismissRequest = {
@@ -1018,10 +1316,11 @@ private fun FormularioEv(
             },
             text = {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement =
+                        Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        "Ingresa el nombre del lugar donde " +
+                        text = "Ingresa el nombre del lugar donde " +
                                 "se realizará el evento.",
                         color = colores.onSurfaceVariant
                     )
@@ -1032,7 +1331,9 @@ private fun FormularioEv(
                             nuevoLugar = it
                             mensajeLugar = null
                         },
-                        label = { Text("Nombre del lugar") },
+                        label = {
+                            Text("Nombre del lugar")
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = !guardandoLugar,
@@ -1045,7 +1346,7 @@ private fun FormularioEv(
 
                     mensajeLugar?.let {
                         Text(
-                            it,
+                            text = it,
                             color = rojo,
                             fontSize = 13.sp
                         )
@@ -1060,7 +1361,8 @@ private fun FormularioEv(
 
                         when {
                             nombreLimpio.isBlank() -> {
-                                mensajeLugar = "Ingresa el nombre del lugar"
+                                mensajeLugar =
+                                    "Ingresa el nombre del lugar"
                             }
 
                             lugares.any {
@@ -1069,7 +1371,8 @@ private fun FormularioEv(
                                     ignoreCase = true
                                 )
                             } -> {
-                                mensajeLugar = "Este lugar ya está registrado"
+                                mensajeLugar =
+                                    "Este lugar ya está registrado"
                             }
 
                             else -> {
@@ -1092,7 +1395,10 @@ private fun FormularioEv(
                         }
                     }
                 ) {
-                    Text("Guardar", color = AzulEv)
+                    Text(
+                        text = "Guardar",
+                        color = AzulEv
+                    )
                 }
             },
             dismissButton = {
@@ -1103,7 +1409,7 @@ private fun FormularioEv(
                     }
                 ) {
                     Text(
-                        "Cancelar",
+                        text = "Cancelar",
                         color = colores.onSurfaceVariant
                     )
                 }

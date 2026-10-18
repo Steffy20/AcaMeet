@@ -9,22 +9,26 @@ import com.example.acameet.data.local.entity.Usuario
 import com.example.acameet.data.repository.UsuarioRepository
 import com.example.acameet.data.repository.UserPreferences
 import com.example.acameet.data.repository.UserPreferencesRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+// ESTADO DE LA PANTALLA DE CONFIGURACIÓN
 data class ConfiguracionUiState(
     val preferences: UserPreferences = UserPreferences(),
     val isLoading: Boolean = false
 )
 
+// VIEWMODEL DE CONFIGURACIÓN
 class ConfiguracionViewModel(
     private val preferencesRepository: UserPreferencesRepository,
     private val usuarioRepository: UsuarioRepository
 ) : ViewModel() {
 
+    // ESTADO REACTIVO CON STATEFLOW
     val uiState: StateFlow<ConfiguracionUiState> =
         preferencesRepository.userPreferencesFlow
             .map { preferences ->
@@ -41,6 +45,7 @@ class ConfiguracionViewModel(
                 )
             )
 
+    // RECORDAR SESIÓN
     fun onRecordarSesionChanged(
         enabled: Boolean,
         usuarioId: Int?
@@ -54,30 +59,54 @@ class ConfiguracionViewModel(
                         usuarioId
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Se conserva la preferencia anterior si falla DataStore.
+                // No se modifica la interfaz si falla DataStore.
             }
         }
     }
 
+    // CAMBIAR TEMA
     fun onTemaOscuroChanged(enabled: Boolean) {
         viewModelScope.launch {
-            preferencesRepository.saveTemaOscuro(enabled)
+            try {
+                preferencesRepository.saveTemaOscuro(enabled)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Se conserva el último valor guardado.
+            }
         }
     }
 
+    // ACTIVAR O DESACTIVAR NOTIFICACIONES
     fun onNotificacionesChanged(enabled: Boolean) {
         viewModelScope.launch {
-            preferencesRepository.saveNotificaciones(enabled)
+            try {
+                preferencesRepository.saveNotificaciones(enabled)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Se conserva el último valor guardado.
+            }
         }
     }
 
+    // CAMBIAR IDIOMA
     fun onIdiomaChanged(nuevoIdioma: String) {
         viewModelScope.launch {
-            preferencesRepository.saveIdioma(nuevoIdioma)
+            try {
+                preferencesRepository.saveIdioma(nuevoIdioma)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Se conserva el último valor guardado.
+            }
         }
     }
 
+    // CARGAR DATOS DEL USUARIO
     fun cargarUsuario(
         usuarioId: Int,
         onResultado: (Usuario?) -> Unit
@@ -85,27 +114,33 @@ class ConfiguracionViewModel(
         viewModelScope.launch {
             try {
                 val usuario =
-                    usuarioRepository.obtenerUsuarioPorId(usuarioId)
+                    usuarioRepository.obtenerUsuarioPorId(
+                        usuarioId
+                    )
 
                 onResultado(usuario)
+
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResultado(null)
             }
         }
     }
 
+    // ACTUALIZAR PERFIL
     fun actualizarPerfil(
         usuarioId: Int,
         nombre: String,
         correo: String,
         onResultado: (Boolean, String) -> Unit
     ) {
-        val nombreLimpio =
-            nombre.trim().replace(Regex("\\s+"), " ")
+        val nombreLimpio = nombre.trim()
+            .replace(Regex("\\s+"), " ")
 
-        val correoLimpio =
-            correo.trim().lowercase()
+        val correoLimpio = correo.trim().lowercase()
 
+        // VALIDAR NOMBRE
         if (
             nombreLimpio.split(" ").size < 2 ||
             !nombreLimpio.matches(
@@ -119,7 +154,9 @@ class ConfiguracionViewModel(
             return
         }
 
-        if (!Patterns.EMAIL_ADDRESS
+        // VALIDAR CORREO
+        if (
+            !Patterns.EMAIL_ADDRESS
                 .matcher(correoLimpio)
                 .matches()
         ) {
@@ -133,7 +170,9 @@ class ConfiguracionViewModel(
         viewModelScope.launch {
             try {
                 val usuario =
-                    usuarioRepository.obtenerUsuarioPorId(usuarioId)
+                    usuarioRepository.obtenerUsuarioPorId(
+                        usuarioId
+                    )
 
                 if (usuario == null) {
                     onResultado(
@@ -170,6 +209,9 @@ class ConfiguracionViewModel(
                     true,
                     "Perfil actualizado correctamente"
                 )
+
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResultado(
                     false,
@@ -179,6 +221,7 @@ class ConfiguracionViewModel(
         }
     }
 
+    // CAMBIAR CONTRASEÑA
     fun cambiarContrasena(
         usuarioId: Int,
         actual: String,
@@ -186,6 +229,7 @@ class ConfiguracionViewModel(
         confirmar: String,
         onResultado: (Boolean, String) -> Unit
     ) {
+        // VALIDAR CONTRASEÑA ACTUAL
         if (actual.isBlank()) {
             onResultado(
                 false,
@@ -194,6 +238,7 @@ class ConfiguracionViewModel(
             return
         }
 
+        // VALIDAR NUEVA CONTRASEÑA
         if (
             nueva.length < 8 ||
             !nueva.any { it.isUpperCase() } ||
@@ -207,6 +252,7 @@ class ConfiguracionViewModel(
             return
         }
 
+        // CONFIRMAR NUEVA CONTRASEÑA
         if (nueva != confirmar) {
             onResultado(
                 false,
@@ -215,6 +261,7 @@ class ConfiguracionViewModel(
             return
         }
 
+        // EVITAR REPETIR CONTRASEÑA
         if (nueva == actual) {
             onResultado(
                 false,
@@ -226,7 +273,9 @@ class ConfiguracionViewModel(
         viewModelScope.launch {
             try {
                 val usuario =
-                    usuarioRepository.obtenerUsuarioPorId(usuarioId)
+                    usuarioRepository.obtenerUsuarioPorId(
+                        usuarioId
+                    )
 
                 if (usuario == null) {
                     onResultado(
@@ -254,6 +303,9 @@ class ConfiguracionViewModel(
                     true,
                     "Contraseña actualizada correctamente"
                 )
+
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResultado(
                     false,
@@ -264,6 +316,7 @@ class ConfiguracionViewModel(
     }
 }
 
+// FÁBRICA MANUAL DEL VIEWMODEL
 class ConfiguracionViewModelFactory(
     private val preferencesRepository: UserPreferencesRepository,
     private val usuarioRepository: UsuarioRepository
@@ -272,6 +325,7 @@ class ConfiguracionViewModelFactory(
     override fun <T : ViewModel> create(
         modelClass: Class<T>
     ): T {
+
         if (
             modelClass.isAssignableFrom(
                 ConfiguracionViewModel::class.java
@@ -279,13 +333,13 @@ class ConfiguracionViewModelFactory(
         ) {
             @Suppress("UNCHECKED_CAST")
             return ConfiguracionViewModel(
-                preferencesRepository,
-                usuarioRepository
+                preferencesRepository = preferencesRepository,
+                usuarioRepository = usuarioRepository
             ) as T
         }
 
         throw IllegalArgumentException(
-            "Unknown ViewModel class"
+            "ViewModel desconocido: ${modelClass.name}"
         )
     }
 }

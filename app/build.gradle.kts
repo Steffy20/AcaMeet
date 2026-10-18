@@ -49,6 +49,9 @@ dependencies {
     // Navegación entre pantallas
     implementation("androidx.navigation:navigation-compose:2.9.5")
 
+    // Manejo seguro del estado según el ciclo de vida
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
+
     // Iconos para AcaMeet
     implementation("androidx.compose.material:material-icons-extended")
 

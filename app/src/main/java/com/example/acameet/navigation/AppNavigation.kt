@@ -3,15 +3,19 @@ package com.example.acameet.navigation
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 import com.example.acameet.data.local.database.AcaMeetDatabase
-
-import com.example.acameet.data.repository.UsuarioRepository
+import com.example.acameet.data.repository.UsuarioRepositoryImpl
 import com.example.acameet.data.repository.CategoriaRepositoryImpl
 import com.example.acameet.data.repository.LugarRepositoryImpl
 import com.example.acameet.data.repository.EventoRepositoryImpl
@@ -19,49 +23,79 @@ import com.example.acameet.data.repository.UserPreferencesRepositoryImpl
 
 import com.example.acameet.ui.viewmodel.UsuarioViewModel
 import com.example.acameet.ui.viewmodel.UsuarioViewModelFactory
-
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
 import com.example.acameet.ui.viewmodel.CategoriaViewModelFactory
-
 import com.example.acameet.ui.viewmodel.LugarViewModel
 import com.example.acameet.ui.viewmodel.LugarViewModelFactory
-
 import com.example.acameet.ui.viewmodel.ConfiguracionViewModel
 import com.example.acameet.ui.viewmodel.ConfiguracionViewModelFactory
 
 import com.example.acameet.ui.EventoViewModel
 import com.example.acameet.ui.EventoViewModelFactory
-
 import com.example.acameet.ui.theme.AcaMeetTheme
-
 import com.example.acameet.ui.screens.*
+
+private object Rutas {
+    const val SPLASH = "splash"
+    const val LOGIN = "login"
+    const val REGISTER = "register"
+    const val INICIO = "inicio"
+    const val CATEGORIAS = "categorias"
+    const val EVENTOS = "eventos"
+    const val LUGARES = "lugares"
+    const val CONFIGURACION = "configuracion"
+}
+
+private fun NavHostController.irAPantalla(
+    ruta: String
+) {
+    navigate(ruta) {
+        launchSingleTop = true
+        restoreState = true
+
+        popUpTo(graph.startDestinationId) {
+            saveState = true
+        }
+    }
+}
 
 @Composable
 fun AppNavigation() {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val navController = rememberNavController()
 
     // BASE DE DATOS ROOM
     val database = remember(context) {
-        AcaMeetDatabase.getDatabase(context)
+        AcaMeetDatabase.getDatabase(
+            context.applicationContext
+        )
     }
 
     // REPOSITORIOS
     val usuarioRepository = remember(database) {
-        UsuarioRepository(database.usuarioDao())
+        UsuarioRepositoryImpl(
+            database.usuarioDao()
+        )
     }
 
     val categoriaRepository = remember(database) {
-        CategoriaRepositoryImpl(database.categoriaDao())
+        CategoriaRepositoryImpl(
+            database.categoriaDao()
+        )
     }
 
     val lugarRepository = remember(database) {
-        LugarRepositoryImpl(database.lugarDao())
+        LugarRepositoryImpl(
+            database.lugarDao()
+        )
     }
 
     val eventoRepository = remember(database) {
-        EventoRepositoryImpl(database.eventoDao())
+        EventoRepositoryImpl(
+            database.eventoDao()
+        )
     }
 
     val preferencesRepository = remember(context) {
@@ -70,7 +104,7 @@ fun AppNavigation() {
         )
     }
 
-    // VIEWMODELS
+    // VIEWMODELS CON FÁBRICAS MANUALES
     val usuarioViewModel: UsuarioViewModel = viewModel(
         factory = UsuarioViewModelFactory(
             usuarioRepository
@@ -95,27 +129,27 @@ fun AppNavigation() {
         )
     )
 
-    val configuracionViewModel: ConfiguracionViewModel = viewModel(
-        factory = ConfiguracionViewModelFactory(
-            preferencesRepository,
-            usuarioRepository
+    val configuracionViewModel: ConfiguracionViewModel =
+        viewModel(
+            factory = ConfiguracionViewModelFactory(
+                preferencesRepository,
+                usuarioRepository
+            )
         )
-    )
 
-    // PREFERENCIAS GUARDADAS EN DATASTORE
+    // PREFERENCIAS
     val preferencias by preferencesRepository
         .userPreferencesFlow
-        .collectAsState(initial = null)
+        .collectAsStateWithLifecycle(
+            initialValue = null
+        )
 
-    // ESTADOS DE NAVEGACIÓN
-    var pantallaActual by remember {
-        mutableStateOf("splash")
-    }
-
+    // SESIÓN ACTUAL
     var usuarioIdActivo by remember {
         mutableStateOf<Int?>(null)
     }
 
+    // ESTADO INTERNO DE EVENTOS
     var pantallaInicialEvento by remember {
         mutableStateOf("lista")
     }
@@ -124,10 +158,23 @@ fun AppNavigation() {
         mutableStateOf<Int?>(null)
     }
 
-    // RECUPERAR SESIÓN AL ABRIR LA APLICACIÓN
+    fun limpiarNavegacionEventos() {
+        pantallaInicialEvento = "lista"
+        eventoIdSeleccionado = null
+    }
+
+    fun abrirListaEventos() {
+        limpiarNavegacionEventos()
+        eventoViewModel.limpiarFiltros()
+        navController.irAPantalla(Rutas.EVENTOS)
+    }
+
+    // RECUPERAR SESIÓN DESPUÉS DEL SPLASH
     LaunchedEffect(Unit) {
 
         delay(3000)
+
+        var destino = Rutas.LOGIN
 
         try {
             val prefs = preferencesRepository
@@ -145,36 +192,42 @@ fun AppNavigation() {
 
                 if (usuario != null) {
                     usuarioIdActivo = usuario.id
-                    pantallaActual = "inicio"
+                    destino = Rutas.INICIO
                 } else {
                     preferencesRepository.cerrarSesion()
-                    pantallaActual = "login"
                 }
-
-            } else {
-                pantallaActual = "login"
             }
-
         } catch (e: Exception) {
-            pantallaActual = "login"
+            destino = Rutas.LOGIN
+        }
+
+        navController.navigate(destino) {
+            popUpTo(Rutas.SPLASH) {
+                inclusive = true
+            }
+            launchSingleTop = true
         }
     }
 
-    // APLICAR TEMA OSCURO O CLARO
+    // TEMA OSCURO / CLARO
     AcaMeetTheme(
         darkTheme = preferencias?.temaOscuro ?: true,
         dynamicColor = false
     ) {
 
-        when (pantallaActual) {
+        NavHost(
+            navController = navController,
+            startDestination = Rutas.SPLASH
+        ) {
 
             // SPLASH
-            "splash" -> {
+            composable(Rutas.SPLASH) {
                 SplashScreen()
             }
 
             // INICIAR SESIÓN
-            "login" -> {
+            composable(Rutas.LOGIN) {
+
                 LoginRoute(
                     viewModel = usuarioViewModel,
 
@@ -187,101 +240,117 @@ fun AppNavigation() {
                                 preferencesRepository
                                     .guardarUsuarioSesion(usuarioId)
                             } catch (e: Exception) {
-                                // La sesión actual continúa aunque
-                                // falle el guardado de la preferencia.
+                                // La sesión activa continúa.
                             }
                         }
 
-                        pantallaActual = "inicio"
+                        navController.navigate(Rutas.INICIO) {
+                            popUpTo(Rutas.LOGIN) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
                     },
 
                     onNavigateToRegister = {
-                        pantallaActual = "register"
+                        navController.navigate(Rutas.REGISTER)
                     }
                 )
             }
 
-            // REGISTRAR USUARIO
-            "register" -> {
+            // REGISTRO
+            composable(Rutas.REGISTER) {
+
                 RegisterRoute(
                     viewModel = usuarioViewModel,
 
                     onRegisterSuccess = {
-                        pantallaActual = "login"
+                        navController.popBackStack(
+                            Rutas.LOGIN,
+                            inclusive = false
+                        )
                     },
 
                     onNavigateToLogin = {
-                        pantallaActual = "login"
+                        navController.popBackStack(
+                            Rutas.LOGIN,
+                            inclusive = false
+                        )
                     }
                 )
             }
 
             // INICIO
-            "inicio" -> {
+            composable(Rutas.INICIO) {
+
                 HomeScreen(
                     eventoViewModel = eventoViewModel,
                     categoriaViewModel = categoriaViewModel,
                     lugarViewModel = lugarViewModel,
 
                     onCategoriasClick = {
-                        pantallaActual = "categorias"
+                        navController.irAPantalla(
+                            Rutas.CATEGORIAS
+                        )
                     },
 
                     onEventosClick = {
-                        pantallaInicialEvento = "lista"
-                        eventoIdSeleccionado = null
-
-                        eventoViewModel.limpiarFiltros()
-
-                        pantallaActual = "eventos"
+                        abrirListaEventos()
                     },
 
                     onConfiguracionClick = {
-                        pantallaActual = "configuracion"
+                        navController.irAPantalla(
+                            Rutas.CONFIGURACION
+                        )
                     },
 
                     onCrearEventoClick = {
                         pantallaInicialEvento = "crear"
                         eventoIdSeleccionado = null
 
-                        pantallaActual = "eventos"
+                        navController.irAPantalla(
+                            Rutas.EVENTOS
+                        )
                     },
 
                     onDetalleEventoClick = { id ->
                         pantallaInicialEvento = "detalle"
                         eventoIdSeleccionado = id
 
-                        pantallaActual = "eventos"
+                        navController.irAPantalla(
+                            Rutas.EVENTOS
+                        )
                     }
                 )
             }
 
             // CATEGORÍAS
-            "categorias" -> {
+            composable(Rutas.CATEGORIAS) {
+
                 CategoriaScreen(
                     viewModel = categoriaViewModel,
 
                     onInicioClick = {
-                        pantallaActual = "inicio"
+                        navController.irAPantalla(
+                            Rutas.INICIO
+                        )
                     },
 
                     onEventosClick = {
-                        pantallaInicialEvento = "lista"
-                        eventoIdSeleccionado = null
-
-                        eventoViewModel.limpiarFiltros()
-
-                        pantallaActual = "eventos"
+                        abrirListaEventos()
                     },
 
                     onConfiguracionClick = {
-                        pantallaActual = "configuracion"
+                        navController.irAPantalla(
+                            Rutas.CONFIGURACION
+                        )
                     }
                 )
             }
 
             // EVENTOS
-            "eventos" -> {
+            composable(Rutas.EVENTOS) {
+
                 EventoScreen(
                     viewModel = eventoViewModel,
                     categoriaViewModel = categoriaViewModel,
@@ -291,83 +360,95 @@ fun AppNavigation() {
                     eventoIdInicial = eventoIdSeleccionado,
 
                     onInicioClick = {
-                        pantallaInicialEvento = "lista"
-                        eventoIdSeleccionado = null
-
+                        limpiarNavegacionEventos()
                         eventoViewModel.limpiarFiltros()
 
-                        pantallaActual = "inicio"
+                        navController.irAPantalla(
+                            Rutas.INICIO
+                        )
                     },
 
                     onCategoriasClick = {
-                        pantallaInicialEvento = "lista"
-                        eventoIdSeleccionado = null
+                        limpiarNavegacionEventos()
 
-                        pantallaActual = "categorias"
+                        navController.irAPantalla(
+                            Rutas.CATEGORIAS
+                        )
                     },
 
                     onConfiguracionClick = {
-                        pantallaInicialEvento = "lista"
-                        eventoIdSeleccionado = null
+                        limpiarNavegacionEventos()
 
-                        pantallaActual = "configuracion"
+                        navController.irAPantalla(
+                            Rutas.CONFIGURACION
+                        )
                     }
                 )
             }
 
             // LUGARES
-            "lugares" -> {
+            composable(Rutas.LUGARES) {
+
                 LugarScreen(
                     viewModel = lugarViewModel,
 
                     onInicioClick = {
-                        pantallaActual = "inicio"
+                        navController.irAPantalla(
+                            Rutas.INICIO
+                        )
                     }
                 )
             }
 
             // CONFIGURACIÓN
-            "configuracion" -> {
+            composable(Rutas.CONFIGURACION) {
+
                 ConfiguracionRoute(
                     viewModel = configuracionViewModel,
                     usuarioId = usuarioIdActivo,
 
                     onLogout = {
-
                         scope.launch {
                             try {
-                                preferencesRepository.cerrarSesion()
+                                preferencesRepository
+                                    .cerrarSesion()
 
                                 usuarioIdActivo = null
-                                pantallaInicialEvento = "lista"
-                                eventoIdSeleccionado = null
-
+                                limpiarNavegacionEventos()
                                 eventoViewModel.limpiarFiltros()
 
-                                pantallaActual = "login"
+                                navController.navigate(
+                                    Rutas.LOGIN
+                                ) {
+                                    popUpTo(
+                                        navController.graph.id
+                                    ) {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
 
                             } catch (e: Exception) {
-                                // Mantener la sesión si falla
-                                // la eliminación del ID guardado.
+                                // Evita cerrar sesión si
+                                // falla el guardado.
                             }
                         }
                     },
 
                     onInicioClick = {
-                        pantallaActual = "inicio"
+                        navController.irAPantalla(
+                            Rutas.INICIO
+                        )
                     },
 
                     onCategoriasClick = {
-                        pantallaActual = "categorias"
+                        navController.irAPantalla(
+                            Rutas.CATEGORIAS
+                        )
                     },
 
                     onEventosClick = {
-                        pantallaInicialEvento = "lista"
-                        eventoIdSeleccionado = null
-
-                        eventoViewModel.limpiarFiltros()
-
-                        pantallaActual = "eventos"
+                        abrirListaEventos()
                     }
                 )
             }

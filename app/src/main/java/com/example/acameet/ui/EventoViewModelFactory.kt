@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.acameet.data.repository.EventoRepository
 
+// FÁBRICA DEL VIEWMODEL DE EVENTOS
 class EventoViewModelFactory(
     private val repository: EventoRepository
 ) : ViewModelProvider.Factory {
@@ -14,8 +15,14 @@ class EventoViewModelFactory(
         modelClass: Class<T>
     ): T {
 
-        if (modelClass.isAssignableFrom(EventoViewModel::class.java)) {
-            return EventoViewModel(repository) as T
+        if (
+            modelClass.isAssignableFrom(
+                EventoViewModel::class.java
+            )
+        ) {
+            return EventoViewModel(
+                repository = repository
+            ) as T
         }
 
         throw IllegalArgumentException(

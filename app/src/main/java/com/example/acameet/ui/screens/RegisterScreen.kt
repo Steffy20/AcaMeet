@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -37,7 +38,7 @@ private val GrisRegistro = Color(0xFF9BA8B4)
 private val VerdeRegistro = Color(0xFF4CAF50)
 private val RojoRegistro = Color(0xFFFF6B6B)
 
-// STATEFUL
+// STATEFUL ROUTE
 @Composable
 fun RegisterRoute(
     viewModel: UsuarioViewModel,
@@ -45,23 +46,46 @@ fun RegisterRoute(
     onNavigateToLogin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var nombre by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    var nombre by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var email by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var password by remember {
+        mutableStateOf("")
+    }
+
+    var confirmPassword by remember {
+        mutableStateOf("")
+    }
+
     var mensajeError by remember {
         mutableStateOf<String?>(null)
     }
 
-    val nombreLimpio = nombre.trim().replace(Regex("\\s+"), " ")
+    var registrando by remember {
+        mutableStateOf(false)
+    }
+
+    val nombreLimpio = nombre.trim().replace(
+        Regex("\\s+"),
+        " "
+    )
+
     val nombreValido =
         nombreLimpio.split(" ").size >= 2 &&
                 nombreLimpio.matches(
                     Regex("^[\\p{L}]+(?:[ '-][\\p{L}]+)*$")
                 )
 
-    val correoValido = email.isNotBlank() &&
-            Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    val correoValido =
+        email.isNotBlank() &&
+                Patterns.EMAIL_ADDRESS.matcher(
+                    email.trim()
+                ).matches()
 
     val largoValido = password.length >= 8
     val mayusculaValida = password.any { it.isUpperCase() }
@@ -82,7 +106,8 @@ fun RegisterRoute(
         nombreValido &&
                 correoValido &&
                 contrasenaValida &&
-                confirmacionValida
+                confirmacionValida &&
+                !registrando
 
     RegisterContent(
         nombre = nombre,
@@ -98,30 +123,39 @@ fun RegisterRoute(
         numeroValido = numeroValido,
         confirmacionValida = confirmacionValida,
         formularioValido = formularioValido,
+
         onNombreChange = {
             nombre = it
             mensajeError = null
         },
+
         onEmailChange = {
             email = it
             mensajeError = null
         },
+
         onPasswordChange = {
             password = it
             mensajeError = null
         },
+
         onConfirmPasswordChange = {
             confirmPassword = it
             mensajeError = null
         },
+
         onRegisterClick = {
             if (formularioValido) {
+                registrando = true
+
                 viewModel.registrarUsuario(
-                    nombre = nombre,
-                    correo = email,
+                    nombre = nombreLimpio,
+                    correo = email.trim(),
                     contrasena = password,
                     confirmarContrasena = confirmPassword
                 ) { exito, mensaje ->
+                    registrando = false
+
                     if (exito) {
                         onRegisterSuccess()
                     } else {
@@ -130,12 +164,13 @@ fun RegisterRoute(
                 }
             }
         },
+
         onNavigateToLogin = onNavigateToLogin,
         modifier = modifier
     )
 }
 
-// STATELESS
+// STATELESS CONTENT
 @Composable
 fun RegisterContent(
     nombre: String,
@@ -162,6 +197,7 @@ fun RegisterContent(
     var mostrarContrasena by remember {
         mutableStateOf(false)
     }
+
     var mostrarConfirmacion by remember {
         mutableStateOf(false)
     }
@@ -196,13 +232,16 @@ fun RegisterContent(
 
             Spacer(Modifier.height((-15).dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     "Aca",
                     color = Color.White,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold
                 )
+
                 Text(
                     "Meet",
                     color = AzulRegistro,
@@ -237,7 +276,9 @@ fun RegisterContent(
                 value = nombre,
                 onValueChange = onNombreChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Nombre completo") },
+                label = {
+                    Text("Nombre completo")
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Person,
@@ -252,6 +293,7 @@ fun RegisterContent(
 
             if (nombre.isNotEmpty()) {
                 Spacer(Modifier.height(5.dp))
+
                 MensajeRegistro(
                     texto = if (nombreValido) {
                         "Nombre completo válido"
@@ -269,7 +311,9 @@ fun RegisterContent(
                 value = email,
                 onValueChange = onEmailChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Correo electrónico") },
+                label = {
+                    Text("Correo electrónico")
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Email,
@@ -287,6 +331,7 @@ fun RegisterContent(
 
             if (email.isNotEmpty()) {
                 Spacer(Modifier.height(5.dp))
+
                 MensajeRegistro(
                     texto = if (correoValido) {
                         "Formato de correo válido"
@@ -304,7 +349,9 @@ fun RegisterContent(
                 value = password,
                 onValueChange = onPasswordChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Contraseña") },
+                label = {
+                    Text("Contraseña")
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Lock,
@@ -323,7 +370,11 @@ fun RegisterContent(
                             } else {
                                 Icons.Default.VisibilityOff
                             },
-                            contentDescription = "Mostrar contraseña"
+                            contentDescription = if (mostrarContrasena) {
+                                "Ocultar contraseña"
+                            } else {
+                                "Mostrar contraseña"
+                            }
                         )
                     }
                 },
@@ -337,8 +388,10 @@ fun RegisterContent(
                 ),
                 singleLine = true,
                 isError = password.isNotEmpty() &&
-                        !(largoValido && mayusculaValida &&
-                                minusculaValida && numeroValido),
+                        !(largoValido &&
+                                mayusculaValida &&
+                                minusculaValida &&
+                                numeroValido),
                 colors = coloresRegistroTiempoReal(),
                 shape = RoundedCornerShape(14.dp)
             )
@@ -350,14 +403,17 @@ fun RegisterContent(
                     texto = "Mínimo 8 caracteres",
                     valido = largoValido
                 )
+
                 MensajeRegistro(
                     texto = "Al menos una letra mayúscula",
                     valido = mayusculaValida
                 )
+
                 MensajeRegistro(
                     texto = "Al menos una letra minúscula",
                     valido = minusculaValida
                 )
+
                 MensajeRegistro(
                     texto = "Al menos un número",
                     valido = numeroValido
@@ -371,7 +427,9 @@ fun RegisterContent(
                 value = confirmPassword,
                 onValueChange = onConfirmPasswordChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Confirmar contraseña") },
+                label = {
+                    Text("Confirmar contraseña")
+                },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Lock,
@@ -390,7 +448,11 @@ fun RegisterContent(
                             } else {
                                 Icons.Default.VisibilityOff
                             },
-                            contentDescription = "Mostrar confirmación"
+                            contentDescription = if (mostrarConfirmacion) {
+                                "Ocultar confirmación"
+                            } else {
+                                "Mostrar confirmación"
+                            }
                         )
                     }
                 },
@@ -411,6 +473,7 @@ fun RegisterContent(
 
             if (confirmPassword.isNotEmpty()) {
                 Spacer(Modifier.height(5.dp))
+
                 MensajeRegistro(
                     texto = if (confirmacionValida) {
                         "Las contraseñas coinciden"
@@ -421,8 +484,10 @@ fun RegisterContent(
                 )
             }
 
+            // MENSAJE DE ERROR
             if (mensajeError != null) {
                 Spacer(Modifier.height(12.dp))
+
                 Text(
                     text = mensajeError,
                     color = RojoRegistro,
@@ -433,6 +498,7 @@ fun RegisterContent(
 
             Spacer(Modifier.height(22.dp))
 
+            // BOTÓN CREAR CUENTA
             Button(
                 onClick = onRegisterClick,
                 enabled = formularioValido,
@@ -455,14 +521,19 @@ fun RegisterContent(
 
             Spacer(Modifier.height(12.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // IR A INICIO DE SESIÓN
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     "¿Ya tienes una cuenta?",
                     color = GrisRegistro,
                     fontSize = 14.sp
                 )
 
-                TextButton(onClick = onNavigateToLogin) {
+                TextButton(
+                    onClick = onNavigateToLogin
+                ) {
                     Text(
                         "Iniciar sesión",
                         color = AzulRegistro,
@@ -474,6 +545,7 @@ fun RegisterContent(
     }
 }
 
+// MENSAJES DE VALIDACIÓN
 @Composable
 private fun MensajeRegistro(
     texto: String,
@@ -481,7 +553,11 @@ private fun MensajeRegistro(
 ) {
     Text(
         text = (if (valido) "✓ " else "✗ ") + texto,
-        color = if (valido) VerdeRegistro else RojoRegistro,
+        color = if (valido) {
+            VerdeRegistro
+        } else {
+            RojoRegistro
+        },
         fontSize = 12.sp,
         modifier = Modifier
             .fillMaxWidth()
@@ -489,6 +565,7 @@ private fun MensajeRegistro(
     )
 }
 
+// COLORES ORIGINALES DE LOS CAMPOS
 @Composable
 private fun coloresRegistroTiempoReal() =
     OutlinedTextFieldDefaults.colors(

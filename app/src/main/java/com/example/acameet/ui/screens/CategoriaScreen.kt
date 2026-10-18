@@ -34,37 +34,15 @@ import com.example.acameet.ui.viewmodel.CategoriaUiState
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
 
 private val AzulAcaMeet = Color(0xFF0798F2)
-private val RojoAcaMeet = Color(0xFFE57373)
 
 @Composable
-fun CategoriaScreen(
+fun CategoriaRoute(
     viewModel: CategoriaViewModel,
     onInicioClick: () -> Unit = {},
     onEventosClick: () -> Unit = {},
     onConfiguracionClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val colores = MaterialTheme.colorScheme
-
-    val esOscuro = colores.background == Color(0xFF020B12)
-
-    val fondo = if (esOscuro) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF020B12),
-                Color(0xFF03141F),
-                Color(0xFF001D32)
-            )
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFFF3F7FA),
-                Color(0xFFEDF5FA),
-                Color(0xFFE2F0F9)
-            )
-        )
-    }
 
     var pantalla by remember {
         mutableStateOf("lista")
@@ -94,6 +72,72 @@ fun CategoriaScreen(
         }
     }
 
+    CategoriaContent(
+        uiState = uiState,
+        pantalla = pantalla,
+        categoriaSeleccionada = categoriaSeleccionada,
+        categoriaEliminar = categoriaEliminar,
+        mensaje = mensaje,
+        onPantallaChange = { pantalla = it },
+        onCategoriaSeleccionadaChange = {
+            categoriaSeleccionada = it
+        },
+        onCategoriaEliminarChange = {
+            categoriaEliminar = it
+        },
+        onMensajeChange = { mensaje = it },
+        onRegistrarCategoria = viewModel::registrarCategoria,
+        onActualizarCategoria = { categoria, nombre ->
+            viewModel.actualizarCategoria(categoria, nombre)
+        },
+        onEliminarCategoria = viewModel::eliminarCategoria,
+        onInicioClick = onInicioClick,
+        onEventosClick = onEventosClick,
+        onConfiguracionClick = onConfiguracionClick
+    )
+}
+
+@Composable
+fun CategoriaContent(
+    uiState: CategoriaUiState,
+    pantalla: String,
+    categoriaSeleccionada: Categoria?,
+    categoriaEliminar: Categoria?,
+    mensaje: String?,
+    onPantallaChange: (String) -> Unit,
+    onCategoriaSeleccionadaChange: (Categoria?) -> Unit,
+    onCategoriaEliminarChange: (Categoria?) -> Unit,
+    onMensajeChange: (String?) -> Unit,
+    onRegistrarCategoria: (String) -> Unit,
+    onActualizarCategoria: (Categoria, String) -> Unit,
+    onEliminarCategoria: (Categoria) -> Unit,
+    onInicioClick: () -> Unit = {},
+    onEventosClick: () -> Unit = {},
+    onConfiguracionClick: () -> Unit = {}
+) {
+    val colores = MaterialTheme.colorScheme
+
+    val esOscuro =
+        colores.background == Color(0xFF020B12)
+
+    val fondo = if (esOscuro) {
+        Brush.verticalGradient(
+            listOf(
+                Color(0xFF020B12),
+                Color(0xFF03141F),
+                Color(0xFF001D32)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                Color(0xFFF3F7FA),
+                Color(0xFFEDF5FA),
+                Color(0xFFE2F0F9)
+            )
+        )
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
@@ -108,8 +152,8 @@ fun CategoriaScreen(
             if (pantalla == "lista") {
                 FloatingActionButton(
                     onClick = {
-                        categoriaSeleccionada = null
-                        pantalla = "crear"
+                        onCategoriaSeleccionadaChange(null)
+                        onPantallaChange("crear")
                     },
                     containerColor = AzulAcaMeet,
                     contentColor = Color.White
@@ -202,15 +246,21 @@ fun CategoriaScreen(
                                         TarjetaCategoria(
                                             categoria = categoria,
                                             onDetalleClick = {
-                                                categoriaSeleccionada = categoria
-                                                pantalla = "detalle"
+                                                onCategoriaSeleccionadaChange(
+                                                    categoria
+                                                )
+                                                onPantallaChange("detalle")
                                             },
                                             onEditarClick = {
-                                                categoriaSeleccionada = categoria
-                                                pantalla = "editar"
+                                                onCategoriaSeleccionadaChange(
+                                                    categoria
+                                                )
+                                                onPantallaChange("editar")
                                             },
                                             onEliminarClick = {
-                                                categoriaEliminar = categoria
+                                                onCategoriaEliminarChange(
+                                                    categoria
+                                                )
                                             }
                                         )
                                     }
@@ -224,7 +274,7 @@ fun CategoriaScreen(
                     EncabezadoCategoria(
                         titulo = "Crear categoría",
                         onVolver = {
-                            pantalla = "lista"
+                            onPantallaChange("lista")
                         }
                     )
 
@@ -235,10 +285,10 @@ fun CategoriaScreen(
                                     ?.procesando == true
                                 ),
                         onGuardar = { nombre ->
-                            viewModel.registrarCategoria(nombre)
+                            onRegistrarCategoria(nombre)
                         },
                         onCancelar = {
-                            pantalla = "lista"
+                            onPantallaChange("lista")
                         }
                     )
                 }
@@ -250,7 +300,7 @@ fun CategoriaScreen(
                         EncabezadoCategoria(
                             titulo = "Editar categoría",
                             onVolver = {
-                                pantalla = "detalle"
+                                onPantallaChange("detalle")
                             }
                         )
 
@@ -261,13 +311,13 @@ fun CategoriaScreen(
                                         ?.procesando == true
                                     ),
                             onGuardar = { nuevoNombre ->
-                                viewModel.actualizarCategoria(
-                                    categoria = categoria,
-                                    nuevoNombre = nuevoNombre
+                                onActualizarCategoria(
+                                    categoria,
+                                    nuevoNombre
                                 )
                             },
                             onCancelar = {
-                                pantalla = "detalle"
+                                onPantallaChange("detalle")
                             }
                         )
                     }
@@ -280,14 +330,16 @@ fun CategoriaScreen(
                         EncabezadoCategoria(
                             titulo = "Detalle de categoría",
                             onVolver = {
-                                pantalla = "lista"
+                                onPantallaChange("lista")
                             }
                         )
 
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
+                                .verticalScroll(
+                                    rememberScrollState()
+                                ),
                             verticalArrangement =
                                 Arrangement.spacedBy(16.dp)
                         ) {
@@ -331,7 +383,7 @@ fun CategoriaScreen(
 
                             Button(
                                 onClick = {
-                                    pantalla = "editar"
+                                    onPantallaChange("editar")
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
@@ -351,7 +403,7 @@ fun CategoriaScreen(
 
                             OutlinedButton(
                                 onClick = {
-                                    categoriaEliminar = categoria
+                                    onCategoriaEliminarChange(categoria)
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp)
@@ -376,11 +428,11 @@ fun CategoriaScreen(
         }
     }
 
-    // CONFIRMAR ELIMINACIÓN
+    // CONFIRMACIÓN PARA ELIMINAR
     categoriaEliminar?.let { categoria ->
         AlertDialog(
             onDismissRequest = {
-                categoriaEliminar = null
+                onCategoriaEliminarChange(null)
             },
             containerColor = colores.surface,
             titleContentColor = colores.onSurface,
@@ -400,7 +452,7 @@ fun CategoriaScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.eliminarCategoria(categoria)
+                        onEliminarCategoria(categoria)
                     }
                 ) {
                     Text(
@@ -412,7 +464,7 @@ fun CategoriaScreen(
             dismissButton = {
                 TextButton(
                     onClick = {
-                        categoriaEliminar = null
+                        onCategoriaEliminarChange(null)
                     }
                 ) {
                     Text(
@@ -428,7 +480,7 @@ fun CategoriaScreen(
     mensaje?.let { texto ->
         AlertDialog(
             onDismissRequest = {
-                mensaje = null
+                onMensajeChange(null)
             },
             containerColor = colores.surface,
             titleContentColor = colores.onSurface,
@@ -445,7 +497,7 @@ fun CategoriaScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        mensaje = null
+                        onMensajeChange(null)
                     }
                 ) {
                     Text(
@@ -456,6 +508,22 @@ fun CategoriaScreen(
             }
         )
     }
+}
+
+// COMPATIBILIDAD CON APPNAVIGATION
+@Composable
+fun CategoriaScreen(
+    viewModel: CategoriaViewModel,
+    onInicioClick: () -> Unit = {},
+    onEventosClick: () -> Unit = {},
+    onConfiguracionClick: () -> Unit = {}
+) {
+    CategoriaRoute(
+        viewModel = viewModel,
+        onInicioClick = onInicioClick,
+        onEventosClick = onEventosClick,
+        onConfiguracionClick = onConfiguracionClick
+    )
 }
 
 @Composable
@@ -526,7 +594,8 @@ private fun FormularioCategoria(
         ) {
             Column(
                 modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement =
+                    Arrangement.spacedBy(16.dp)
             ) {
                 Text(
                     text = "Completa los datos para " +
@@ -567,10 +636,13 @@ private fun FormularioCategoria(
                         focusedLeadingIconColor = AzulAcaMeet,
                         focusedTextColor = colores.onSurface,
                         unfocusedTextColor = colores.onSurface,
-                        focusedPlaceholderColor = colores.onSurfaceVariant,
-                        unfocusedPlaceholderColor = colores.onSurfaceVariant,
+                        focusedPlaceholderColor =
+                            colores.onSurfaceVariant,
+                        unfocusedPlaceholderColor =
+                            colores.onSurfaceVariant,
                         unfocusedBorderColor = colores.outline,
-                        unfocusedLabelColor = colores.onSurfaceVariant,
+                        unfocusedLabelColor =
+                            colores.onSurfaceVariant,
                         cursorColor = AzulAcaMeet
                     )
                 )
@@ -704,7 +776,9 @@ private fun TarjetaCategoria(
     onEliminarClick: () -> Unit
 ) {
     val colores = MaterialTheme.colorScheme
-    val esOscuro = colores.background == Color(0xFF020B12)
+
+    val esOscuro =
+        colores.background == Color(0xFF020B12)
 
     Card(
         modifier = Modifier

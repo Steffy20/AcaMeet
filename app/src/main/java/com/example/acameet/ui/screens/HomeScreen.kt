@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -30,9 +31,10 @@ import com.example.acameet.ui.viewmodel.CategoriaUiState
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
 import com.example.acameet.ui.viewmodel.LugarViewModel
 
-// Mantiene el azul original de AcaMeet.
+// Mantiene el azul original de AcaMeet
 private val AzulInicio = Color(0xFF0798F2)
 
+// COMPATIBILIDAD CON APPNAVIGATION
 @Composable
 fun HomeScreen(
     eventoViewModel: EventoViewModel,
@@ -44,17 +46,49 @@ fun HomeScreen(
     onCrearEventoClick: () -> Unit = {},
     onDetalleEventoClick: (Int) -> Unit = {}
 ) {
-    val eventoState by eventoViewModel.uiState.collectAsStateWithLifecycle()
-    val categoriaState by categoriaViewModel.uiState.collectAsStateWithLifecycle()
-    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
+    HomeRoute(
+        eventoViewModel = eventoViewModel,
+        categoriaViewModel = categoriaViewModel,
+        lugarViewModel = lugarViewModel,
+        onCategoriasClick = onCategoriasClick,
+        onEventosClick = onEventosClick,
+        onConfiguracionClick = onConfiguracionClick,
+        onCrearEventoClick = onCrearEventoClick,
+        onDetalleEventoClick = onDetalleEventoClick
+    )
+}
+
+// STATEFUL ROUTE
+@Composable
+fun HomeRoute(
+    eventoViewModel: EventoViewModel,
+    categoriaViewModel: CategoriaViewModel,
+    lugarViewModel: LugarViewModel,
+    onCategoriasClick: () -> Unit = {},
+    onEventosClick: () -> Unit = {},
+    onConfiguracionClick: () -> Unit = {},
+    onCrearEventoClick: () -> Unit = {},
+    onDetalleEventoClick: (Int) -> Unit = {}
+) {
+    val eventoState by eventoViewModel.uiState
+        .collectAsStateWithLifecycle()
+
+    val categoriaState by categoriaViewModel.uiState
+        .collectAsStateWithLifecycle()
+
+    val lugares by lugarViewModel.lugares
+        .collectAsStateWithLifecycle()
 
     val categorias = when (val estado = categoriaState) {
         is CategoriaUiState.Success -> estado.categorias
         else -> emptyList()
     }
 
-    var busqueda by remember { mutableStateOf("") }
-    var categoriaSeleccionada by remember {
+    var busqueda by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var categoriaSeleccionada by rememberSaveable {
         mutableStateOf<Int?>(null)
     }
 
@@ -65,8 +99,13 @@ fun HomeScreen(
 
     val eventosFiltrados = eventos.filter { evento ->
         val coincideBusqueda =
-            evento.nombre.contains(busqueda, ignoreCase = true) ||
-                    evento.descripcion.contains(busqueda, ignoreCase = true)
+            evento.nombre.contains(
+                busqueda,
+                ignoreCase = true
+            ) || evento.descripcion.contains(
+                busqueda,
+                ignoreCase = true
+            )
 
         val coincideCategoria =
             categoriaSeleccionada == null ||
@@ -82,9 +121,13 @@ fun HomeScreen(
         categorias = categorias,
         lugares = lugares,
         busqueda = busqueda,
-        onBusquedaChange = { busqueda = it },
+        onBusquedaChange = {
+            busqueda = it
+        },
         categoriaSeleccionada = categoriaSeleccionada,
-        onCategoriaChange = { categoriaSeleccionada = it },
+        onCategoriaChange = {
+            categoriaSeleccionada = it
+        },
         onCategoriasClick = onCategoriasClick,
         onEventosClick = onEventosClick,
         onConfiguracionClick = onConfiguracionClick,
@@ -93,6 +136,7 @@ fun HomeScreen(
     )
 }
 
+// STATELESS CONTENT
 @Composable
 private fun HomeContent(
     eventos: List<Evento>,
@@ -112,7 +156,9 @@ private fun HomeContent(
 ) {
     val colores = MaterialTheme.colorScheme
 
-    val fondoInicio = if (colores.background == Color(0xFF020B12)) {
+    val fondoInicio = if (
+        colores.background == Color(0xFF020B12)
+    ) {
         Brush.verticalGradient(
             listOf(
                 Color(0xFF020B12),
@@ -163,7 +209,7 @@ private fun HomeContent(
             Spacer(Modifier.height(36.dp))
 
             Text(
-                "AcaMeet",
+                text = "AcaMeet",
                 color = colores.onBackground,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold
@@ -172,7 +218,7 @@ private fun HomeContent(
             Spacer(Modifier.height(6.dp))
 
             Text(
-                "Organiza y descubre eventos académicos",
+                text = "Organiza y descubre eventos académicos",
                 color = colores.onSurfaceVariant,
                 fontSize = 14.sp
             )
@@ -223,15 +269,17 @@ private fun HomeContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "Mis eventos",
+                    text = "Mis eventos",
                     color = colores.onBackground,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
 
-                TextButton(onClick = onEventosClick) {
+                TextButton(
+                    onClick = onEventosClick
+                ) {
                     Text(
-                        "Ver todos",
+                        text = "Ver todos",
                         color = AzulInicio
                     )
                 }
@@ -257,7 +305,7 @@ private fun HomeContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            error,
+                            text = error,
                             color = colores.error
                         )
                     }
@@ -275,7 +323,8 @@ private fun HomeContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment =
+                                Alignment.CenterHorizontally
                         ) {
                             Icon(
                                 Icons.Default.Event,
@@ -287,7 +336,7 @@ private fun HomeContent(
                             Spacer(Modifier.height(12.dp))
 
                             Text(
-                                "Próximos eventos",
+                                text = "Próximos eventos",
                                 color = colores.onSurface,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -296,7 +345,7 @@ private fun HomeContent(
                             Spacer(Modifier.height(8.dp))
 
                             Text(
-                                "No hay eventos para mostrar",
+                                text = "No hay eventos para mostrar",
                                 color = colores.onSurfaceVariant,
                                 fontSize = 14.sp
                             )
@@ -318,8 +367,11 @@ private fun HomeContent(
 
                 else -> {
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 90.dp)
+                        verticalArrangement =
+                            Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(
+                            bottom = 90.dp
+                        )
                     ) {
                         items(
                             items = eventos,
@@ -345,6 +397,7 @@ private fun HomeContent(
     }
 }
 
+// FILTRO DE CATEGORÍAS
 @Composable
 private fun FiltroCategoriaInicio(
     categorias: List<Categoria>,
@@ -362,7 +415,7 @@ private fun FiltroCategoriaInicio(
             }
         ) {
             Text(
-                categorias.find {
+                text = categorias.find {
                     it.id == seleccion
                 }?.nombre ?: "Todas las categorías",
                 color = AzulInicio
@@ -408,6 +461,7 @@ private fun FiltroCategoriaInicio(
     }
 }
 
+// TARJETA DE EVENTO
 @Composable
 private fun TarjetaEventoInicio(
     evento: Evento,
@@ -445,7 +499,7 @@ private fun TarjetaEventoInicio(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    evento.nombre,
+                    text = evento.nombre,
                     color = colores.onSurface,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold
@@ -454,7 +508,7 @@ private fun TarjetaEventoInicio(
                 Spacer(Modifier.height(5.dp))
 
                 Text(
-                    evento.descripcion,
+                    text = evento.descripcion,
                     color = colores.onSurfaceVariant,
                     fontSize = 13.sp,
                     maxLines = 2
@@ -463,13 +517,13 @@ private fun TarjetaEventoInicio(
                 Spacer(Modifier.height(7.dp))
 
                 Text(
-                    "${evento.fecha} • ${evento.hora}",
+                    text = "${evento.fecha} • ${evento.hora}",
                     color = AzulInicio,
                     fontSize = 12.sp
                 )
 
                 Text(
-                    "$categoria • $lugar",
+                    text = "$categoria • $lugar",
                     color = colores.onSurfaceVariant,
                     fontSize = 12.sp,
                     maxLines = 1

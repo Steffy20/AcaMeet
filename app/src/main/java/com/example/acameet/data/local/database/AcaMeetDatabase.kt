@@ -16,6 +16,7 @@ import com.example.acameet.data.local.dao.CategoriaDao
 import com.example.acameet.data.local.dao.LugarDao
 import com.example.acameet.data.local.dao.EventoDao
 
+// BASE DE DATOS PRINCIPAL DE ACAMEET
 @Database(
     entities = [
         Usuario::class,
@@ -28,12 +29,16 @@ import com.example.acameet.data.local.dao.EventoDao
 )
 abstract class AcaMeetDatabase : RoomDatabase() {
 
+    // DAO DE USUARIOS
     abstract fun usuarioDao(): UsuarioDao
 
+    // DAO DE CATEGORÍAS
     abstract fun categoriaDao(): CategoriaDao
 
+    // DAO DE LUGARES
     abstract fun lugarDao(): LugarDao
 
+    // DAO DE EVENTOS
     abstract fun eventoDao(): EventoDao
 
     companion object {
@@ -41,7 +46,10 @@ abstract class AcaMeetDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AcaMeetDatabase? = null
 
-        fun getDatabase(context: Context): AcaMeetDatabase {
+        // OBTENER INSTANCIA ÚNICA DE LA BASE DE DATOS
+        fun getDatabase(
+            context: Context
+        ): AcaMeetDatabase {
 
             return INSTANCE ?: synchronized(this) {
 

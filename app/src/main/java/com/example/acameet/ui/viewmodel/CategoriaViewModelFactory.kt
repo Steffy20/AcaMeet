@@ -1,3 +1,4 @@
+
 package com.example.acameet.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -12,14 +13,16 @@ class CategoriaViewModelFactory(
         modelClass: Class<T>
     ): T {
 
-        if (modelClass.isAssignableFrom(CategoriaViewModel::class.java)) {
-
+        if (modelClass.isAssignableFrom(
+                CategoriaViewModel::class.java
+            )
+        ) {
             @Suppress("UNCHECKED_CAST")
             return CategoriaViewModel(repository) as T
         }
 
         throw IllegalArgumentException(
-            "ViewModel desconocido"
+            "ViewModel desconocido: ${modelClass.name}"
         )
     }
 }

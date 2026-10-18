@@ -7,18 +7,18 @@ import androidx.lifecycle.viewModelScope
 import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.repository.EventoRepository
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// Estados de la pantalla de eventos
+// ESTADOS DE LA PANTALLA DE EVENTOS
 sealed interface EventoUiState {
 
     data object Loading : EventoUiState
@@ -32,37 +32,39 @@ sealed interface EventoUiState {
     ) : EventoUiState
 }
 
-// Mensajes de las operaciones
+// MENSAJES DE LAS OPERACIONES
 data class EventoMensaje(
     val exitoso: Boolean,
     val texto: String
 )
 
-// ViewModel de eventos
+// VIEWMODEL DE EVENTOS
 class EventoViewModel(
     private val repository: EventoRepository
 ) : ViewModel() {
 
-    // Texto de búsqueda
+    // TEXTO DE BÚSQUEDA
     private val _busqueda = MutableStateFlow("")
 
     val busqueda: StateFlow<String> = _busqueda
 
-    // Filtro por categoría
-    private val _categoriaFiltro = MutableStateFlow<Int?>(null)
+    // FILTRO POR CATEGORÍA
+    private val _categoriaFiltro =
+        MutableStateFlow<Int?>(null)
 
-    val categoriaFiltro: StateFlow<Int?> = _categoriaFiltro
+    val categoriaFiltro: StateFlow<Int?> =
+        _categoriaFiltro
 
-    // Canal para comunicar resultados a la interfaz
+    // CANAL PARA COMUNICAR RESULTADOS A LA INTERFAZ
     private val mensajeChannel =
         Channel<EventoMensaje>(Channel.BUFFERED)
 
     val mensajes = mensajeChannel.receiveAsFlow()
 
-    // Lista de eventos obtenidos desde Room
+    // EVENTOS OBTENIDOS DESDE ROOM
     private val eventosRoom = repository.obtenerEventos()
 
-    // Estado de la pantalla
+    // ESTADO REACTIVO DE LA PANTALLA
     val uiState: StateFlow<EventoUiState> =
         combine(
             eventosRoom,
@@ -74,6 +76,7 @@ class EventoViewModel(
 
             val eventosFiltrados = eventos.filter { evento ->
 
+                // VERIFICAR BÚSQUEDA
                 val coincideBusqueda =
                     textoLimpio.isBlank() ||
                             evento.nombre.contains(
@@ -85,6 +88,7 @@ class EventoViewModel(
                                 ignoreCase = true
                             )
 
+                // VERIFICAR CATEGORÍA
                 val coincideCategoria =
                     categoriaId == null ||
                             evento.categoriaId == categoriaId
@@ -111,28 +115,30 @@ class EventoViewModel(
             initialValue = EventoUiState.Loading
         )
 
-    // Actualizar búsqueda
+    // ACTUALIZAR TEXTO DE BÚSQUEDA
     fun actualizarBusqueda(texto: String) {
         _busqueda.value = texto
     }
 
-    // Filtrar eventos por categoría
+    // FILTRAR EVENTOS POR CATEGORÍA
     fun filtrarPorCategoria(categoriaId: Int?) {
         _categoriaFiltro.value = categoriaId
     }
 
-    // Limpiar búsqueda y filtros
+    // LIMPIAR BÚSQUEDA Y FILTROS
     fun limpiarFiltros() {
         _busqueda.value = ""
         _categoriaFiltro.value = null
     }
 
-    // Obtener un evento por ID para abrir su detalle
-    suspend fun obtenerEventoParaPantalla(id: Int): Evento? {
+    // OBTENER EVENTO POR ID
+    suspend fun obtenerEventoParaPantalla(
+        id: Int
+    ): Evento? {
         return repository.obtenerEventoPorId(id)
     }
 
-    // Registrar un nuevo evento
+    // REGISTRAR UN NUEVO EVENTO
     fun registrarEvento(
         nombre: String,
         descripcion: String,
@@ -144,12 +150,15 @@ class EventoViewModel(
 
         val nombreLimpio = nombre.trim()
         val descripcionLimpia = descripcion.trim()
+        val fechaLimpia = fecha.trim()
+        val horaLimpia = hora.trim()
 
+        // VALIDAR CAMPOS OBLIGATORIOS
         if (
             nombreLimpio.isBlank() ||
             descripcionLimpia.isBlank() ||
-            fecha.isBlank() ||
-            hora.isBlank()
+            fechaLimpia.isBlank() ||
+            horaLimpia.isBlank()
         ) {
             enviarMensaje(
                 false,
@@ -158,6 +167,7 @@ class EventoViewModel(
             return
         }
 
+        // VALIDAR CATEGORÍA
         if (categoriaId <= 0) {
             enviarMensaje(
                 false,
@@ -166,6 +176,7 @@ class EventoViewModel(
             return
         }
 
+        // VALIDAR LUGAR
         if (lugarId <= 0) {
             enviarMensaje(
                 false,
@@ -180,8 +191,8 @@ class EventoViewModel(
                 val nuevoEvento = Evento(
                     nombre = nombreLimpio,
                     descripcion = descripcionLimpia,
-                    fecha = fecha,
-                    hora = hora,
+                    fecha = fechaLimpia,
+                    hora = horaLimpia,
                     categoriaId = categoriaId,
                     lugarId = lugarId
                 )
@@ -195,6 +206,8 @@ class EventoViewModel(
                     )
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
 
                 mensajeChannel.send(
@@ -207,7 +220,7 @@ class EventoViewModel(
         }
     }
 
-    // Actualizar un evento existente
+    // ACTUALIZAR UN EVENTO EXISTENTE
     fun actualizarEvento(
         evento: Evento,
         nombre: String,
@@ -220,12 +233,15 @@ class EventoViewModel(
 
         val nombreLimpio = nombre.trim()
         val descripcionLimpia = descripcion.trim()
+        val fechaLimpia = fecha.trim()
+        val horaLimpia = hora.trim()
 
+        // VALIDAR CAMPOS OBLIGATORIOS
         if (
             nombreLimpio.isBlank() ||
             descripcionLimpia.isBlank() ||
-            fecha.isBlank() ||
-            hora.isBlank()
+            fechaLimpia.isBlank() ||
+            horaLimpia.isBlank()
         ) {
             enviarMensaje(
                 false,
@@ -234,6 +250,7 @@ class EventoViewModel(
             return
         }
 
+        // VALIDAR CATEGORÍA
         if (categoriaId <= 0) {
             enviarMensaje(
                 false,
@@ -242,6 +259,7 @@ class EventoViewModel(
             return
         }
 
+        // VALIDAR LUGAR
         if (lugarId <= 0) {
             enviarMensaje(
                 false,
@@ -256,13 +274,15 @@ class EventoViewModel(
                 val eventoActualizado = evento.copy(
                     nombre = nombreLimpio,
                     descripcion = descripcionLimpia,
-                    fecha = fecha,
-                    hora = hora,
+                    fecha = fechaLimpia,
+                    hora = horaLimpia,
                     categoriaId = categoriaId,
                     lugarId = lugarId
                 )
 
-                repository.actualizarEvento(eventoActualizado)
+                repository.actualizarEvento(
+                    eventoActualizado
+                )
 
                 mensajeChannel.send(
                     EventoMensaje(
@@ -271,6 +291,8 @@ class EventoViewModel(
                     )
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
 
                 mensajeChannel.send(
@@ -283,7 +305,7 @@ class EventoViewModel(
         }
     }
 
-    // Eliminar un evento
+    // ELIMINAR UN EVENTO
     fun eliminarEvento(evento: Evento) {
 
         viewModelScope.launch {
@@ -298,6 +320,8 @@ class EventoViewModel(
                     )
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
 
                 mensajeChannel.send(
@@ -310,12 +334,13 @@ class EventoViewModel(
         }
     }
 
-    // Enviar mensajes a la interfaz
+    // ENVIAR MENSAJES A LA INTERFAZ
     private fun enviarMensaje(
         exitoso: Boolean,
         texto: String
     ) {
         viewModelScope.launch {
+
             mensajeChannel.send(
                 EventoMensaje(
                     exitoso = exitoso,

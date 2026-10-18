@@ -11,18 +11,27 @@ import com.example.acameet.data.local.entity.Usuario
 @Dao
 interface UsuarioDao {
 
-    // REGISTRAR USUARIO
+    // REGISTRAR UN NUEVO USUARIO
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertarUsuario(usuario: Usuario)
+    suspend fun insertarUsuario(
+        usuario: Usuario
+    )
 
-    // BUSCAR USUARIO POR CORREO
-    @Query("SELECT * FROM usuarios WHERE correo = :correo LIMIT 1")
-    suspend fun obtenerUsuarioPorCorreo(correo: String): Usuario?
+    // BUSCAR USUARIO POR CORREO ELECTRÓNICO
+    @Query(
+        "SELECT * FROM usuarios " +
+                "WHERE correo = :correo LIMIT 1"
+    )
+    suspend fun obtenerUsuarioPorCorreo(
+        correo: String
+    ): Usuario?
 
     // INICIAR SESIÓN
     @Query(
         "SELECT * FROM usuarios " +
-                "WHERE correo = :correo AND contrasena = :contrasena LIMIT 1"
+                "WHERE correo = :correo " +
+                "AND contrasena = :contrasena " +
+                "LIMIT 1"
     )
     suspend fun iniciarSesion(
         correo: String,
@@ -30,10 +39,17 @@ interface UsuarioDao {
     ): Usuario?
 
     // OBTENER USUARIO POR ID
-    @Query("SELECT * FROM usuarios WHERE id = :id LIMIT 1")
-    suspend fun obtenerUsuarioPorId(id: Int): Usuario?
+    @Query(
+        "SELECT * FROM usuarios " +
+                "WHERE id = :id LIMIT 1"
+    )
+    suspend fun obtenerUsuarioPorId(
+        id: Int
+    ): Usuario?
 
     // ACTUALIZAR PERFIL O CONTRASEÑA
     @Update
-    suspend fun actualizarUsuario(usuario: Usuario)
+    suspend fun actualizarUsuario(
+        usuario: Usuario
+    )
 }

@@ -6,11 +6,74 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.acameet.data.local.entity.Usuario
 import com.example.acameet.data.repository.UsuarioRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+// ESTADOS DE AUTENTICACIÓN
+sealed interface UsuarioUiState {
+
+    data object Idle : UsuarioUiState
+
+    data object Loading : UsuarioUiState
+
+    data class Success(
+        val mensaje: String
+    ) : UsuarioUiState
+
+    data class Error(
+        val mensaje: String
+    ) : UsuarioUiState
+}
+
+// EVENTOS DE UNA SOLA EJECUCIÓN
+sealed interface UsuarioEvento {
+
+    data class RegistroExitoso(
+        val mensaje: String
+    ) : UsuarioEvento
+
+    data class LoginExitoso(
+        val usuarioId: Int
+    ) : UsuarioEvento
+
+    data class MostrarError(
+        val mensaje: String
+    ) : UsuarioEvento
+}
 
 class UsuarioViewModel(
     private val repository: UsuarioRepository
 ) : ViewModel() {
+
+    private val _uiState =
+        MutableStateFlow<UsuarioUiState>(UsuarioUiState.Idle)
+
+    val uiState: StateFlow<UsuarioUiState> =
+        _uiState.asStateFlow()
+
+    private val _eventos =
+        MutableSharedFlow<UsuarioEvento>(
+            extraBufferCapacity = 1
+        )
+
+    val eventos: SharedFlow<UsuarioEvento> =
+        _eventos.asSharedFlow()
+
+    // EVITAR OPERACIONES DUPLICADAS
+    private var operacionEnCurso = false
+
+    // RESTABLECER ESTADO
+    fun limpiarEstado() {
+        if (!operacionEnCurso) {
+            _uiState.value = UsuarioUiState.Idle
+        }
+    }
 
     // REGISTRAR USUARIO
     fun registrarUsuario(
@@ -20,85 +83,125 @@ class UsuarioViewModel(
         confirmarContrasena: String,
         onResultado: (Boolean, String) -> Unit
     ) {
-        val nombreLimpio = nombre.trim().replace(Regex("\\s+"), " ")
+        if (operacionEnCurso) return
+
+        val nombreLimpio = nombre.trim()
+            .replace(Regex("\\s+"), " ")
+
         val correoLimpio = correo.trim().lowercase()
+
+        fun error(mensaje: String) {
+            _uiState.value = UsuarioUiState.Error(mensaje)
+            onResultado(false, mensaje)
+
+            viewModelScope.launch {
+                _eventos.emit(
+                    UsuarioEvento.MostrarError(mensaje)
+                )
+            }
+        }
 
         // VALIDAR NOMBRE
         if (nombreLimpio.isEmpty()) {
-            onResultado(false, "Ingresa tus nombres y apellidos completos")
+            error("Ingresa tus nombres y apellidos completos")
             return
         }
 
         val partesNombre = nombreLimpio.split(" ")
 
         if (partesNombre.size < 2) {
-            onResultado(false, "Ingresa al menos un nombre y un apellido")
+            error("Ingresa al menos un nombre y un apellido")
             return
         }
 
-        if (!nombreLimpio.matches(Regex("^[\\p{L}]+(?:[ '-][\\p{L}]+)*$"))) {
-            onResultado(false, "El nombre solo debe contener letras")
+        if (!nombreLimpio.matches(
+                Regex("^[\\p{L}]+(?:[ '-][\\p{L}]+)*$")
+            )
+        ) {
+            error("El nombre solo debe contener letras")
             return
         }
 
         // VALIDAR CORREO
         if (correoLimpio.isEmpty()) {
-            onResultado(false, "Ingresa tu correo electrónico")
+            error("Ingresa tu correo electrónico")
             return
         }
 
-        if (!Patterns.EMAIL_ADDRESS.matcher(correoLimpio).matches()) {
-            onResultado(false, "Ingresa un correo electrónico válido")
+        if (!Patterns.EMAIL_ADDRESS.matcher(
+                correoLimpio
+            ).matches()
+        ) {
+            error("Ingresa un correo electrónico válido")
             return
         }
 
         // VALIDAR CONTRASEÑA
         if (contrasena.isEmpty()) {
-            onResultado(false, "Ingresa una contraseña")
+            error("Ingresa una contraseña")
             return
         }
 
         if (contrasena.length < 8) {
-            onResultado(false, "La contraseña debe tener al menos 8 caracteres")
+            error("La contraseña debe tener al menos 8 caracteres")
             return
         }
 
         if (!contrasena.any { it.isUpperCase() }) {
-            onResultado(false, "La contraseña debe contener al menos una letra mayúscula")
+            error(
+                "La contraseña debe contener al menos una letra mayúscula"
+            )
             return
         }
 
         if (!contrasena.any { it.isLowerCase() }) {
-            onResultado(false, "La contraseña debe contener al menos una letra minúscula")
+            error(
+                "La contraseña debe contener al menos una letra minúscula"
+            )
             return
         }
 
         if (!contrasena.any { it.isDigit() }) {
-            onResultado(false, "La contraseña debe contener al menos un número")
+            error(
+                "La contraseña debe contener al menos un número"
+            )
             return
         }
 
         // CONFIRMAR CONTRASEÑA
         if (confirmarContrasena.isEmpty()) {
-            onResultado(false, "Confirma tu contraseña")
+            error("Confirma tu contraseña")
             return
         }
 
         if (contrasena != confirmarContrasena) {
-            onResultado(false, "Las contraseñas no coinciden")
+            error("Las contraseñas no coinciden")
             return
         }
+
+        operacionEnCurso = true
+        _uiState.value = UsuarioUiState.Loading
 
         viewModelScope.launch {
             try {
                 val usuarioExistente =
-                    repository.obtenerUsuarioPorCorreo(correoLimpio)
+                    repository.obtenerUsuarioPorCorreo(
+                        correoLimpio
+                    )
 
                 if (usuarioExistente != null) {
-                    onResultado(
-                        false,
+                    val mensaje =
                         "Este correo electrónico ya está registrado"
+
+                    _uiState.value =
+                        UsuarioUiState.Error(mensaje)
+
+                    onResultado(false, mensaje)
+
+                    _eventos.emit(
+                        UsuarioEvento.MostrarError(mensaje)
                     )
+
                     return@launch
                 }
 
@@ -110,16 +213,36 @@ class UsuarioViewModel(
 
                 repository.registrarUsuario(nuevoUsuario)
 
-                onResultado(
-                    true,
+                val mensaje =
                     "¡Cuenta creada correctamente!"
+
+                _uiState.value =
+                    UsuarioUiState.Success(mensaje)
+
+                onResultado(true, mensaje)
+
+                _eventos.emit(
+                    UsuarioEvento.RegistroExitoso(mensaje)
                 )
 
+            } catch (e: CancellationException) {
+                throw e
+
             } catch (e: Exception) {
-                onResultado(
-                    false,
+                val mensaje =
                     "No se pudo crear la cuenta. Inténtalo nuevamente"
+
+                _uiState.value =
+                    UsuarioUiState.Error(mensaje)
+
+                onResultado(false, mensaje)
+
+                _eventos.emit(
+                    UsuarioEvento.MostrarError(mensaje)
                 )
+
+            } finally {
+                operacionEnCurso = false
             }
         }
     }
@@ -134,7 +257,6 @@ class UsuarioViewModel(
             correo = correo,
             contrasena = contrasena
         ) { usuario, mensaje ->
-
             onResultado(
                 usuario != null,
                 mensaje
@@ -142,28 +264,49 @@ class UsuarioViewModel(
         }
     }
 
-    // INICIAR SESIÓN Y DEVOLVER EL USUARIO AUTENTICADO
+    // INICIAR SESIÓN Y DEVOLVER USUARIO AUTENTICADO
     fun iniciarSesionConUsuario(
         correo: String,
         contrasena: String,
         onResultado: (Usuario?, String) -> Unit
     ) {
+        if (operacionEnCurso) return
+
         val correoLimpio = correo.trim().lowercase()
 
+        fun error(mensaje: String) {
+            _uiState.value = UsuarioUiState.Error(mensaje)
+            onResultado(null, mensaje)
+
+            viewModelScope.launch {
+                _eventos.emit(
+                    UsuarioEvento.MostrarError(mensaje)
+                )
+            }
+        }
+
+        // VALIDAR CORREO
         if (correoLimpio.isEmpty()) {
-            onResultado(null, "Ingresa tu correo electrónico")
+            error("Ingresa tu correo electrónico")
             return
         }
 
-        if (!Patterns.EMAIL_ADDRESS.matcher(correoLimpio).matches()) {
-            onResultado(null, "Ingresa un correo electrónico válido")
+        if (!Patterns.EMAIL_ADDRESS.matcher(
+                correoLimpio
+            ).matches()
+        ) {
+            error("Ingresa un correo electrónico válido")
             return
         }
 
+        // VALIDAR CONTRASEÑA
         if (contrasena.isEmpty()) {
-            onResultado(null, "Ingresa tu contraseña")
+            error("Ingresa tu contraseña")
             return
         }
+
+        operacionEnCurso = true
+        _uiState.value = UsuarioUiState.Loading
 
         viewModelScope.launch {
             try {
@@ -173,22 +316,52 @@ class UsuarioViewModel(
                 )
 
                 if (usuario != null) {
-                    onResultado(
-                        usuario,
+                    val mensaje =
                         "Inicio de sesión correcto"
+
+                    _uiState.value =
+                        UsuarioUiState.Success(mensaje)
+
+                    onResultado(usuario, mensaje)
+
+                    _eventos.emit(
+                        UsuarioEvento.LoginExitoso(
+                            usuarioId = usuario.id
+                        )
                     )
+
                 } else {
-                    onResultado(
-                        null,
+                    val mensaje =
                         "Usuario o contraseña incorrectos"
+
+                    _uiState.value =
+                        UsuarioUiState.Error(mensaje)
+
+                    onResultado(null, mensaje)
+
+                    _eventos.emit(
+                        UsuarioEvento.MostrarError(mensaje)
                     )
                 }
 
+            } catch (e: CancellationException) {
+                throw e
+
             } catch (e: Exception) {
-                onResultado(
-                    null,
+                val mensaje =
                     "No se pudo iniciar sesión. Inténtalo nuevamente"
+
+                _uiState.value =
+                    UsuarioUiState.Error(mensaje)
+
+                onResultado(null, mensaje)
+
+                _eventos.emit(
+                    UsuarioEvento.MostrarError(mensaje)
                 )
+
+            } finally {
+                operacionEnCurso = false
             }
         }
     }

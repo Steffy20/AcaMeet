@@ -4,39 +4,45 @@ package com.example.acameet.data.repository
 import com.example.acameet.data.local.entity.Evento
 import kotlinx.coroutines.flow.Flow
 
-// INTERFAZ DEL REPOSITORIO DE EVENTOS
 interface EventoRepository {
 
-    // OBTENER TODOS LOS EVENTOS
-    fun obtenerEventos(): Flow<List<Evento>>
+    // OBTENER LOS EVENTOS DE UN USUARIO
+    fun obtenerEventos(
+        usuarioId: Int
+    ): Flow<List<Evento>>
 
-    // OBTENER UN EVENTO POR SU ID
+    // OBTENER UN EVENTO POR ID Y USUARIO
     suspend fun obtenerEventoPorId(
-        id: Int
+        id: Int,
+        usuarioId: Int
     ): Evento?
 
-    // REGISTRAR UN NUEVO EVENTO
+    // REGISTRAR UN EVENTO
     suspend fun insertarEvento(
         evento: Evento
     )
 
-    // ACTUALIZAR UN EVENTO EXISTENTE
+    // ACTUALIZAR UN EVENTO DEL USUARIO
     suspend fun actualizarEvento(
-        evento: Evento
-    )
+        evento: Evento,
+        usuarioId: Int
+    ): Int
 
-    // ELIMINAR UN EVENTO
+    // ELIMINAR UN EVENTO DEL USUARIO
     suspend fun eliminarEvento(
-        evento: Evento
-    )
+        evento: Evento,
+        usuarioId: Int
+    ): Int
 
-    // BUSCAR EVENTOS POR NOMBRE O DESCRIPCIÓN
+    // BUSCAR EVENTOS DEL USUARIO
     fun buscarEventos(
-        texto: String
+        texto: String,
+        usuarioId: Int
     ): Flow<List<Evento>>
 
-    // FILTRAR EVENTOS POR CATEGORÍA
+    // FILTRAR EVENTOS POR CATEGORÍA Y USUARIO
     fun obtenerEventosPorCategoria(
-        categoriaId: Int
+        categoriaId: Int,
+        usuarioId: Int
     ): Flow<List<Evento>>
 }

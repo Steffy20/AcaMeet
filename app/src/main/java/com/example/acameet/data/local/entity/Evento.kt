@@ -1,6 +1,7 @@
 
 package com.example.acameet.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -11,13 +12,19 @@ data class Evento(
     val id: Int = 0,
 
     val nombre: String,
+
     val descripcion: String,
+
     val fecha: String,
+
     val hora: String,
 
     val categoriaId: Int,
+
     val lugarId: Int,
 
-    // URL DE LA IMAGEN DEL EVENTO
-    val imagenUrl: String = ""
+    val imagenUrl: String = "",
+
+    @ColumnInfo(defaultValue = "0")
+    val usuarioId: Int = 0
 )

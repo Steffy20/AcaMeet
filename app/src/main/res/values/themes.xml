@@ -1,5 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.AcaMeet" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- TEMA PRINCIPAL -->
+    <style name="Theme.AcaMeet"
+        parent="android:style/Theme.Material.NoActionBar">
+
+        <item name="android:windowBackground">#020B12</item>
+        <item name="android:statusBarColor">#020B12</item>
+        <item name="android:navigationBarColor">#020B12</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+    </style>
+
+    <!-- TEMA OSCURO -->
+    <style name="Theme.AcaMeet.Dark"
+        parent="Theme.AcaMeet">
+
+        <item name="android:windowBackground">#020B12</item>
+        <item name="android:statusBarColor">#020B12</item>
+        <item name="android:navigationBarColor">#020B12</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+    </style>
+
+    <!-- TEMA CLARO -->
+    <style name="Theme.AcaMeet.Light"
+        parent="android:style/Theme.Material.Light.NoActionBar">
+
+        <item name="android:windowBackground">#F3F7FA</item>
+        <item name="android:statusBarColor">#F3F7FA</item>
+        <item name="android:navigationBarColor">#F3F7FA</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+    </style>
+
 </resources>

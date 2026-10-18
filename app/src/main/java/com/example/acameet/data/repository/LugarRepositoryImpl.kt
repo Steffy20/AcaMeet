@@ -9,27 +9,86 @@ class LugarRepositoryImpl(
     private val lugarDao: LugarDao
 ) : LugarRepository {
 
-    override fun obtenerLugares(): Flow<List<Lugar>> {
-        return lugarDao.obtenerLugares()
+    // OBTENER LUGARES DEL USUARIO
+    override fun obtenerLugares(
+        usuarioId: Int
+    ): Flow<List<Lugar>> {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para consultar lugares"
+        }
+
+        return lugarDao.obtenerLugares(usuarioId)
     }
 
-    override suspend fun insertarLugar(lugar: Lugar) {
+    // REGISTRAR UN LUGAR
+    override suspend fun insertarLugar(
+        lugar: Lugar
+    ) {
+        require(lugar.usuarioId > 0) {
+            "Debes iniciar sesión para registrar lugares"
+        }
+
         lugarDao.insertarLugar(lugar)
     }
 
-    override suspend fun obtenerLugarPorId(id: Int): Lugar? {
-        return lugarDao.obtenerLugarPorId(id)
+    // BUSCAR LUGAR POR ID
+    override suspend fun obtenerLugarPorId(
+        id: Int,
+        usuarioId: Int
+    ): Lugar? {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para consultar lugares"
+        }
+
+        return lugarDao.obtenerLugarPorId(
+            id = id,
+            usuarioId = usuarioId
+        )
     }
 
-    override suspend fun obtenerLugarPorNombre(nombre: String): Lugar? {
-        return lugarDao.obtenerLugarPorNombre(nombre)
+    // BUSCAR LUGAR POR NOMBRE
+    override suspend fun obtenerLugarPorNombre(
+        nombre: String,
+        usuarioId: Int
+    ): Lugar? {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para consultar lugares"
+        }
+
+        return lugarDao.obtenerLugarPorNombre(
+            nombre = nombre,
+            usuarioId = usuarioId
+        )
     }
 
-    override suspend fun actualizarLugar(lugar: Lugar) {
-        lugarDao.actualizarLugar(lugar)
+    // ACTUALIZAR LUGAR
+    override suspend fun actualizarLugar(
+        lugar: Lugar,
+        usuarioId: Int
+    ): Int {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para actualizar lugares"
+        }
+
+        return lugarDao.actualizarLugar(
+            id = lugar.id,
+            usuarioId = usuarioId,
+            nombre = lugar.nombre
+        )
     }
 
-    override suspend fun eliminarLugar(lugar: Lugar) {
-        lugarDao.eliminarLugar(lugar)
+    // ELIMINAR LUGAR
+    override suspend fun eliminarLugar(
+        lugar: Lugar,
+        usuarioId: Int
+    ): Int {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para eliminar lugares"
+        }
+
+        return lugarDao.eliminarLugar(
+            id = lugar.id,
+            usuarioId = usuarioId
+        )
     }
 }

@@ -34,11 +34,13 @@ import com.example.acameet.R
 import com.example.acameet.ui.viewmodel.UsuarioViewModel
 
 private val AzulRegistro = Color(0xFF0798F2)
-private val GrisRegistro = Color(0xFF9BA8B4)
 private val VerdeRegistro = Color(0xFF4CAF50)
 private val RojoRegistro = Color(0xFFFF6B6B)
 
+// =====================================================
 // STATEFUL ROUTE
+// =====================================================
+
 @Composable
 fun RegisterRoute(
     viewModel: UsuarioViewModel,
@@ -170,7 +172,10 @@ fun RegisterRoute(
     )
 }
 
+// =====================================================
 // STATELESS CONTENT
+// =====================================================
+
 @Composable
 fun RegisterContent(
     nombre: String,
@@ -202,12 +207,27 @@ fun RegisterContent(
         mutableStateOf(false)
     }
 
+    // Colores que cambian según el tema de AcaMeet.
+    val colores = MaterialTheme.colorScheme
+    val oscuro = colores.background.red < 0.5f
+
+    val colorTitulo = colores.onBackground
+    val colorSecundario = colores.onSurfaceVariant
+
     val background = Brush.verticalGradient(
-        listOf(
-            Color(0xFF020B12),
-            Color(0xFF03141F),
-            Color(0xFF001D32)
-        )
+        if (oscuro) {
+            listOf(
+                Color(0xFF020B12),
+                Color(0xFF03141F),
+                Color(0xFF001D32)
+            )
+        } else {
+            listOf(
+                Color(0xFFF3F7FA),
+                Color(0xFFEDF5FA),
+                Color(0xFFE2F0F9)
+            )
+        }
     )
 
     Box(
@@ -223,6 +243,7 @@ fun RegisterContent(
                 .padding(top = 35.dp, bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // LOGO
             Image(
                 painter = painterResource(R.drawable.acameet_logo),
                 contentDescription = "Logo de AcaMeet",
@@ -237,7 +258,7 @@ fun RegisterContent(
             ) {
                 Text(
                     "Aca",
-                    color = Color.White,
+                    color = colorTitulo,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -255,7 +276,7 @@ fun RegisterContent(
             Text(
                 "Crear cuenta",
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = colorTitulo,
                 fontSize = 27.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -265,13 +286,16 @@ fun RegisterContent(
             Text(
                 "Regístrate para gestionar tus eventos académicos",
                 modifier = Modifier.fillMaxWidth(),
-                color = GrisRegistro,
+                color = colorSecundario,
                 fontSize = 14.sp
             )
 
             Spacer(Modifier.height(22.dp))
 
+            // =================================================
             // NOMBRE COMPLETO
+            // =================================================
+
             OutlinedTextField(
                 value = nombre,
                 onValueChange = onNombreChange,
@@ -306,7 +330,10 @@ fun RegisterContent(
 
             Spacer(Modifier.height(12.dp))
 
+            // =================================================
             // CORREO ELECTRÓNICO
+            // =================================================
+
             OutlinedTextField(
                 value = email,
                 onValueChange = onEmailChange,
@@ -344,7 +371,10 @@ fun RegisterContent(
 
             Spacer(Modifier.height(12.dp))
 
+            // =================================================
             // CONTRASEÑA
+            // =================================================
+
             OutlinedTextField(
                 value = password,
                 onValueChange = onPasswordChange,
@@ -422,7 +452,10 @@ fun RegisterContent(
 
             Spacer(Modifier.height(12.dp))
 
+            // =================================================
             // CONFIRMAR CONTRASEÑA
+            // =================================================
+
             OutlinedTextField(
                 value = confirmPassword,
                 onValueChange = onConfirmPasswordChange,
@@ -484,7 +517,10 @@ fun RegisterContent(
                 )
             }
 
+            // =================================================
             // MENSAJE DE ERROR
+            // =================================================
+
             if (mensajeError != null) {
                 Spacer(Modifier.height(12.dp))
 
@@ -498,7 +534,10 @@ fun RegisterContent(
 
             Spacer(Modifier.height(22.dp))
 
+            // =================================================
             // BOTÓN CREAR CUENTA
+            // =================================================
+
             Button(
                 onClick = onRegisterClick,
                 enabled = formularioValido,
@@ -507,8 +546,17 @@ fun RegisterContent(
                     .height(55.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AzulRegistro,
-                    disabledContainerColor = Color(0xFF345064),
-                    disabledContentColor = GrisRegistro
+                    contentColor = Color.White,
+                    disabledContainerColor = if (oscuro) {
+                        Color(0xFF345064)
+                    } else {
+                        Color(0xFFCEDDE8)
+                    },
+                    disabledContentColor = if (oscuro) {
+                        Color(0xFF9BA8B4)
+                    } else {
+                        Color(0xFF657785)
+                    }
                 ),
                 shape = RoundedCornerShape(14.dp)
             ) {
@@ -521,13 +569,16 @@ fun RegisterContent(
 
             Spacer(Modifier.height(12.dp))
 
+            // =================================================
             // IR A INICIO DE SESIÓN
+            // =================================================
+
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "¿Ya tienes una cuenta?",
-                    color = GrisRegistro,
+                    color = colorSecundario,
                     fontSize = 14.sp
                 )
 
@@ -545,7 +596,10 @@ fun RegisterContent(
     }
 }
 
+// =====================================================
 // MENSAJES DE VALIDACIÓN
+// =====================================================
+
 @Composable
 private fun MensajeRegistro(
     texto: String,
@@ -565,22 +619,25 @@ private fun MensajeRegistro(
     )
 }
 
-// COLORES ORIGINALES DE LOS CAMPOS
+// =====================================================
+// COLORES DE CAMPOS SEGÚN EL TEMA ACTIVO
+// =====================================================
+
 @Composable
 private fun coloresRegistroTiempoReal() =
     OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.White,
-        unfocusedTextColor = Color.White,
+        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
         focusedBorderColor = AzulRegistro,
-        unfocusedBorderColor = Color(0xFF345064),
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
         focusedLabelColor = AzulRegistro,
-        unfocusedLabelColor = GrisRegistro,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         focusedLeadingIconColor = AzulRegistro,
-        unfocusedLeadingIconColor = GrisRegistro,
+        unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         focusedTrailingIconColor = AzulRegistro,
-        unfocusedTrailingIconColor = GrisRegistro,
+        unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         cursorColor = AzulRegistro,
-        errorTextColor = Color.White,
+        errorTextColor = MaterialTheme.colorScheme.onBackground,
         errorBorderColor = RojoRegistro,
         errorLabelColor = RojoRegistro,
         errorLeadingIconColor = RojoRegistro

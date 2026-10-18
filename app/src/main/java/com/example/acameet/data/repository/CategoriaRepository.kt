@@ -6,15 +6,37 @@ import kotlinx.coroutines.flow.Flow
 
 interface CategoriaRepository {
 
-    fun obtenerCategorias(): Flow<List<Categoria>>
+    // OBTENER LAS CATEGORÍAS DE UN USUARIO
+    fun obtenerCategorias(
+        usuarioId: Int
+    ): Flow<List<Categoria>>
 
-    suspend fun insertarCategoria(categoria: Categoria)
+    // REGISTRAR UNA CATEGORÍA
+    suspend fun insertarCategoria(
+        categoria: Categoria
+    )
 
-    suspend fun obtenerCategoriaPorId(id: Int): Categoria?
+    // BUSCAR CATEGORÍA POR ID Y USUARIO
+    suspend fun obtenerCategoriaPorId(
+        id: Int,
+        usuarioId: Int
+    ): Categoria?
 
-    suspend fun obtenerCategoriaPorNombre(nombre: String): Categoria?
+    // BUSCAR CATEGORÍA POR NOMBRE Y USUARIO
+    suspend fun obtenerCategoriaPorNombre(
+        nombre: String,
+        usuarioId: Int
+    ): Categoria?
 
-    suspend fun actualizarCategoria(categoria: Categoria)
+    // ACTUALIZAR UNA CATEGORÍA DEL USUARIO
+    suspend fun actualizarCategoria(
+        categoria: Categoria,
+        usuarioId: Int
+    ): Int
 
-    suspend fun eliminarCategoria(categoria: Categoria)
+    // ELIMINAR UNA CATEGORÍA DEL USUARIO
+    suspend fun eliminarCategoria(
+        categoria: Categoria,
+        usuarioId: Int
+    ): Int
 }

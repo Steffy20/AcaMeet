@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -36,15 +38,19 @@ import com.example.acameet.ui.EventoUiState
 import com.example.acameet.ui.EventoViewModel
 import com.example.acameet.ui.ImagenEventoUtils
 import com.example.acameet.ui.components.BottomNavigationBar
+import com.example.acameet.ui.viewmodel.CategoriaMensaje
 import com.example.acameet.ui.viewmodel.CategoriaUiState
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
 import com.example.acameet.ui.viewmodel.LugarViewModel
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 private val AzulEv = Color(0xFF0798F2)
 private val RojoEv = Color(0xFFE57373)
+
+// =====================================================
+// PANTALLA PRINCIPAL
+// =====================================================
 
 @Composable
 fun EventoScreen(
@@ -55,7 +61,8 @@ fun EventoScreen(
     eventoIdInicial: Int? = null,
     onInicioClick: () -> Unit = {},
     onCategoriasClick: () -> Unit = {},
-    onConfiguracionClick: () -> Unit = {}
+    onConfiguracionClick: () -> Unit = {},
+    usuarioIdActivo: Int? = null
 ) {
     EventoRoute(
         viewModel = viewModel,
@@ -65,9 +72,14 @@ fun EventoScreen(
         eventoIdInicial = eventoIdInicial,
         onInicioClick = onInicioClick,
         onCategoriasClick = onCategoriasClick,
-        onConfiguracionClick = onConfiguracionClick
+        onConfiguracionClick = onConfiguracionClick,
+        usuarioIdActivo = usuarioIdActivo
     )
 }
+
+// =====================================================
+// CONEXIÓN CON LOS VIEWMODELS
+// =====================================================
 
 @Composable
 fun EventoRoute(
@@ -78,53 +90,136 @@ fun EventoRoute(
     eventoIdInicial: Int? = null,
     onInicioClick: () -> Unit = {},
     onCategoriasClick: () -> Unit = {},
-    onConfiguracionClick: () -> Unit = {}
+    onConfiguracionClick: () -> Unit = {},
+    usuarioIdActivo: Int? = null
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiStateOriginal by viewModel.uiState.collectAsStateWithLifecycle()
     val busqueda by viewModel.busqueda.collectAsStateWithLifecycle()
     val categoriaState by categoriaViewModel.uiState.collectAsStateWithLifecycle()
-    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
+    val lugaresOriginales by lugarViewModel.lugares.collectAsStateWithLifecycle()
 
-    val categorias = when (val estado = categoriaState) {
-        is CategoriaUiState.Success -> estado.categorias
-        else -> emptyList()
+    val categorias = if (usuarioIdActivo != null) {
+        (categoriaState as? CategoriaUiState.Success)
+            ?.categorias
+            ?.filter { it.usuarioId == usuarioIdActivo }
+            ?: emptyList()
+    } else {
+        emptyList()
     }
 
-    var pantalla by remember(pantallaInicial, eventoIdInicial) {
+    val lugares = if (usuarioIdActivo != null) {
+        lugaresOriginales.filter { it.usuarioId == usuarioIdActivo }
+    } else {
+        emptyList()
+    }
+
+    val uiState: EventoUiState =
+        when (val estado = uiStateOriginal) {
+            is EventoUiState.Success -> {
+                EventoUiState.Success(
+                    eventos = estado.eventos.filter {
+                        usuarioIdActivo != null &&
+                                it.usuarioId == usuarioIdActivo
+                    }
+                )
+            }
+            else -> estado
+        }
+
+    var pantalla by remember(
+        pantallaInicial,
+        eventoIdInicial,
+        usuarioIdActivo
+    ) {
         mutableStateOf(pantallaInicial)
     }
-    var seleccionado by remember {
+
+    var seleccionado by remember(usuarioIdActivo) {
         mutableStateOf<Evento?>(null)
     }
-    var eliminar by remember {
+
+    var eliminar by remember(usuarioIdActivo) {
         mutableStateOf<Evento?>(null)
     }
-    var mensaje by remember {
+
+    var mensaje by remember(usuarioIdActivo) {
         mutableStateOf<String?>(null)
     }
-    var filtroCategoria by remember {
+
+    var filtroCategoria by remember(usuarioIdActivo) {
         mutableStateOf<Int?>(null)
     }
 
-    LaunchedEffect(eventoIdInicial) {
-        if (eventoIdInicial != null) {
+    var resultadoRegistroCategoria by remember(usuarioIdActivo) {
+        mutableStateOf<CategoriaMensaje?>(null)
+    }
+
+    var guardandoEvento by remember(usuarioIdActivo) {
+        mutableStateOf(false)
+    }
+
+    var eliminandoEvento by remember(usuarioIdActivo) {
+        mutableStateOf(false)
+    }
+
+    // Limpiar los filtros al cambiar de cuenta.
+    LaunchedEffect(usuarioIdActivo) {
+        viewModel.limpiarFiltros()
+    }
+
+    // Abrir el detalle de un evento desde Inicio.
+    LaunchedEffect(
+        eventoIdInicial,
+        usuarioIdActivo
+    ) {
+        if (
+            eventoIdInicial != null &&
+            usuarioIdActivo != null
+        ) {
             try {
-                seleccionado = viewModel.obtenerEventoParaPantalla(eventoIdInicial)
-                pantalla = if (seleccionado != null) "detalle" else "lista"
+                val evento = viewModel.obtenerEventoParaPantalla(
+                    eventoIdInicial
+                )
+
+                seleccionado = evento?.takeIf {
+                    it.usuarioId == usuarioIdActivo
+                }
+
+                pantalla = if (seleccionado != null) {
+                    "detalle"
+                } else {
+                    "lista"
+                }
+
             } catch (e: Exception) {
+                seleccionado = null
                 pantalla = "lista"
                 mensaje = "No se pudo cargar el evento"
             }
         }
     }
 
-    LaunchedEffect(viewModel) {
-        viewModel.mensajes.collect { resultado ->
-            mensaje = resultado.texto
-            if (resultado.exitoso) {
-                pantalla = "lista"
-                seleccionado = null
-                eliminar = null
+    // Escuchar resultados de las operaciones.
+    LaunchedEffect(viewModel, usuarioIdActivo) {
+        if (usuarioIdActivo != null) {
+            viewModel.mensajes.collect { resultado ->
+                guardandoEvento = false
+                eliminandoEvento = false
+                mensaje = resultado.texto
+
+                if (resultado.exitoso) {
+                    pantalla = "lista"
+                    seleccionado = null
+                    eliminar = null
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(categoriaViewModel, usuarioIdActivo) {
+        if (usuarioIdActivo != null) {
+            categoriaViewModel.mensajes.collect { resultado ->
+                resultadoRegistroCategoria = resultado
             }
         }
     }
@@ -139,51 +234,130 @@ fun EventoRoute(
         eliminar = eliminar,
         mensaje = mensaje,
         categoriaFiltro = filtroCategoria,
-        onPantallaChange = { pantalla = it },
-        onSeleccionadoChange = { seleccionado = it },
-        onEliminarChange = { eliminar = it },
-        onMensajeChange = { mensaje = it },
-        onCategoriaFiltroChange = { filtroCategoria = it },
-        onBusquedaChange = viewModel::actualizarBusqueda,
-        onRegistrarLugar = { nombre, resultado ->
-            lugarViewModel.registrarLugar(
-                Lugar(nombre = nombre),
-                resultado
-            )
+        guardandoEvento = guardandoEvento,
+        eliminandoEvento = eliminandoEvento,
+        usuarioIdActivo = usuarioIdActivo,
+
+        onPantallaChange = {
+            pantalla = it
         },
+
+        onSeleccionadoChange = {
+            seleccionado = it
+        },
+
+        onEliminarChange = {
+            eliminar = it
+        },
+
+        onMensajeChange = {
+            mensaje = it
+        },
+
+        onCategoriaFiltroChange = {
+            filtroCategoria = it
+        },
+
+        onBusquedaChange = viewModel::actualizarBusqueda,
+
+        resultadoRegistroCategoria = resultadoRegistroCategoria,
+        onLimpiarResultadoCategoria = {
+            resultadoRegistroCategoria = null
+        },
+        onRegistrarCategoria = { nombre ->
+            if (usuarioIdActivo != null) {
+                resultadoRegistroCategoria = null
+                categoriaViewModel.registrarCategoria(nombre)
+            } else {
+                resultadoRegistroCategoria = CategoriaMensaje(
+                    false, "Debes iniciar sesión"
+                )
+            }
+        },
+
+        onRegistrarLugar = { nombre, resultado ->
+            if (usuarioIdActivo != null) {
+                lugarViewModel.registrarLugar(
+                    Lugar(nombre = nombre),
+                    resultado
+                )
+            } else {
+                resultado(false, "Debes iniciar sesión")
+            }
+        },
+
         onGuardarEvento = {
                 inicial, nombre, descripcion, fecha,
                 hora, categoriaId, lugarId ->
 
-            if (inicial == null) {
-                viewModel.registrarEvento(
-                    nombre = nombre,
-                    descripcion = descripcion,
-                    fecha = fecha,
-                    hora = hora,
-                    categoriaId = categoriaId,
-                    lugarId = lugarId,
-                    imagenUrl = ""
-                )
-            } else {
-                viewModel.actualizarEvento(
-                    evento = inicial,
-                    nombre = nombre,
-                    descripcion = descripcion,
-                    fecha = fecha,
-                    hora = hora,
-                    categoriaId = categoriaId,
-                    lugarId = lugarId,
-                    imagenUrl = ""
-                )
+            if (
+                usuarioIdActivo != null &&
+                !guardandoEvento
+            ) {
+                val categoriaValida = categorias.any {
+                    it.id == categoriaId
+                }
+
+                val lugarValido = lugares.any {
+                    it.id == lugarId
+                }
+
+                if (!categoriaValida || !lugarValido) {
+                    mensaje = "Selecciona una categoría y un lugar válidos"
+                } else {
+                    guardandoEvento = true
+
+                    if (inicial == null) {
+                        viewModel.registrarEvento(
+                            nombre = nombre,
+                            descripcion = descripcion,
+                            fecha = fecha,
+                            hora = hora,
+                            categoriaId = categoriaId,
+                            lugarId = lugarId,
+                            imagenUrl = ""
+                        )
+                    } else if (
+                        inicial.usuarioId == usuarioIdActivo
+                    ) {
+                        viewModel.actualizarEvento(
+                            evento = inicial,
+                            nombre = nombre,
+                            descripcion = descripcion,
+                            fecha = fecha,
+                            hora = hora,
+                            categoriaId = categoriaId,
+                            lugarId = lugarId,
+                            imagenUrl = inicial.imagenUrl
+                        )
+                    } else {
+                        guardandoEvento = false
+                        mensaje = "No puedes editar este evento"
+                    }
+                }
             }
         },
-        onEliminarEvento = viewModel::eliminarEvento,
+
+        onEliminarEvento = { evento ->
+            if (
+                usuarioIdActivo != null &&
+                evento.usuarioId == usuarioIdActivo &&
+                !eliminandoEvento
+            ) {
+                eliminandoEvento = true
+                viewModel.eliminarEvento(evento)
+            }
+        },
+
         onInicioClick = onInicioClick,
         onCategoriasClick = onCategoriasClick,
         onConfiguracionClick = onConfiguracionClick
     )
 }
+
+// =====================================================
+// CONTENIDO DE EVENTOS
+// =====================================================
 
 @Composable
 fun EventoContent(
@@ -202,17 +376,26 @@ fun EventoContent(
     onMensajeChange: (String?) -> Unit,
     onCategoriaFiltroChange: (Int?) -> Unit,
     onBusquedaChange: (String) -> Unit,
-    onRegistrarLugar: (String, (Boolean, String) -> Unit) -> Unit,
+    onRegistrarLugar: (
+        String,
+        (Boolean, String) -> Unit
+    ) -> Unit,
+    resultadoRegistroCategoria: CategoriaMensaje? = null,
+    onLimpiarResultadoCategoria: () -> Unit = {},
+    onRegistrarCategoria: (String) -> Unit = {},
     onGuardarEvento: (
         Evento?, String, String, String, String, Int, Int
     ) -> Unit,
     onEliminarEvento: (Evento) -> Unit,
     onInicioClick: () -> Unit = {},
     onCategoriasClick: () -> Unit = {},
-    onConfiguracionClick: () -> Unit = {}
+    onConfiguracionClick: () -> Unit = {},
+    guardandoEvento: Boolean = false,
+    eliminandoEvento: Boolean = false,
+    usuarioIdActivo: Int? = null
 ) {
     val colores = MaterialTheme.colorScheme
-    val oscuro = colores.background == Color(0xFF020B12)
+    val oscuro = colores.background.red < 0.5f
 
     val fondo = Brush.verticalGradient(
         if (oscuro) {
@@ -232,6 +415,7 @@ fun EventoContent(
 
     Scaffold(
         containerColor = Color.Transparent,
+
         bottomBar = {
             BottomNavigationBar(
                 pantallaActual = "eventos",
@@ -240,17 +424,25 @@ fun EventoContent(
                 onConfiguracionClick = onConfiguracionClick
             )
         },
+
         floatingActionButton = {
-            if (pantalla == "lista") {
+            if (
+                pantalla == "lista" &&
+                usuarioIdActivo != null
+            ) {
                 FloatingActionButton(
                     onClick = {
                         onSeleccionadoChange(null)
                         onPantallaChange("crear")
                     },
                     containerColor = AzulEv,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(Icons.Default.Add, "Crear evento")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Crear evento"
+                    )
                 }
             }
         }
@@ -261,39 +453,65 @@ fun EventoContent(
                 .fillMaxSize()
                 .background(fondo)
                 .padding(padding)
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 18.dp)
         ) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
 
             when (pantalla) {
+
+                // LISTA DE EVENTOS
                 "lista" -> {
                     Text(
-                        "Eventos",
+                        text = "Eventos",
                         color = colores.onBackground,
-                        fontSize = 28.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.Bold
                     )
+
+                    Spacer(Modifier.height(3.dp))
+
                     Text(
-                        "Descubre y participa en eventos académicos",
+                        text = "Descubre y participa en eventos académicos",
                         color = colores.onSurfaceVariant,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
 
                     OutlinedTextField(
                         value = busqueda,
                         onValueChange = onBusquedaChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Buscar eventos...") },
+                        placeholder = {
+                            Text(
+                                "Buscar eventos...",
+                                fontSize = 13.sp
+                            )
+                        },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, null)
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Buscar",
+                                modifier = Modifier.size(20.dp)
+                            )
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AzulEv,
+                            unfocusedBorderColor =
+                                AzulEv.copy(alpha = 0.28f),
+                            focusedTextColor = colores.onBackground,
+                            unfocusedTextColor = colores.onBackground,
+                            focusedPlaceholderColor =
+                                colores.onSurfaceVariant,
+                            unfocusedPlaceholderColor =
+                                colores.onSurfaceVariant,
+                            cursorColor = AzulEv
+                        )
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     SelectorCategoriaFiltroEv(
                         categorias = categorias,
@@ -301,21 +519,25 @@ fun EventoContent(
                         onSeleccionar = onCategoriaFiltroChange
                     )
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(18.dp))
 
                     when (val estado = uiState) {
                         is EventoUiState.Loading -> {
                             Box(
-                                Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = AzulEv)
+                                CircularProgressIndicator(
+                                    color = AzulEv
+                                )
                             }
                         }
 
                         is EventoUiState.Error -> {
                             Text(
-                                estado.mensaje,
+                                text = estado.mensaje,
                                 color = RojoEv
                             )
                         }
@@ -328,7 +550,9 @@ fun EventoContent(
 
                             if (eventos.isEmpty()) {
                                 Box(
-                                    Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -338,17 +562,26 @@ fun EventoContent(
                                 }
                             } else {
                                 LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 90.dp)
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement =
+                                        Arrangement.spacedBy(12.dp),
+                                    contentPadding =
+                                        PaddingValues(bottom = 90.dp)
                                 ) {
-                                    items(eventos, key = { it.id }) { evento ->
-                                        val categoria = categorias.find {
-                                            it.id == evento.categoriaId
-                                        }?.nombre ?: "Evento"
+                                    items(
+                                        items = eventos,
+                                        key = { it.id }
+                                    ) { evento ->
+                                        val categoria =
+                                            categorias.find {
+                                                it.id == evento.categoriaId
+                                            }?.nombre ?: "Evento"
 
-                                        val lugar = lugares.find {
-                                            it.id == evento.lugarId
-                                        }?.nombre ?: "Lugar no disponible"
+                                        val lugar =
+                                            lugares.find {
+                                                it.id == evento.lugarId
+                                            }?.nombre
+                                                ?: "Lugar no disponible"
 
                                         TarjetaEventoEv(
                                             evento = evento,
@@ -366,192 +599,526 @@ fun EventoContent(
                     }
                 }
 
+                // DETALLE DEL EVENTO
                 "detalle" -> {
-                    if (seleccionado != null) {
-                        EncabezadoEv(
-                            "Detalle del evento",
-                            onVolver = { onPantallaChange("lista") }
-                        )
+                    val evento = seleccionado
 
+                    if (
+                        evento != null &&
+                        evento.usuarioId == usuarioIdActivo
+                    ) {
                         val categoria = categorias.find {
-                            it.id == seleccionado.categoriaId
-                        }?.nombre ?: "Evento"
+                            it.id == evento.categoriaId
+                        }?.nombre ?: "Sin categoría"
 
                         val lugar = lugares.find {
-                            it.id == seleccionado.lugarId
+                            it.id == evento.lugarId
                         }?.nombre ?: "Lugar no disponible"
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    onPantallaChange("lista")
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.ArrowBack,
+                                    contentDescription = "Volver",
+                                    tint = colores.onBackground
+                                )
+                            }
+
+                            Text(
+                                text = "Detalle del evento",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colores.onBackground
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
 
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement =
+                                Arrangement.spacedBy(12.dp)
                         ) {
+                            ImagenEventoEv(
+                                nombre = evento.nombre,
+                                categoria = categoria,
+                                imagenUrl = evento.imagenUrl,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(185.dp)
+                            )
+
                             Card(
-                                shape = RoundedCornerShape(18.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = colores.surface
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    AzulEv.copy(alpha = 0.22f)
                                 )
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    ImagenEventoEv(
-                                        nombre = seleccionado.nombre,
-                                        categoria = categoria,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(190.dp)
+                                Column {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment =
+                                                Alignment.CenterVertically,
+                                            horizontalArrangement =
+                                                Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Description,
+                                                contentDescription = null,
+                                                tint = AzulEv,
+                                                modifier = Modifier.size(25.dp)
+                                            )
+
+                                            Text(
+                                                text = evento.nombre,
+                                                color = colores.onSurface,
+                                                fontSize = 17.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
+                                        Spacer(Modifier.height(12.dp))
+
+                                        Text(
+                                            text = evento.descripcion,
+                                            color = colores.onSurfaceVariant,
+                                            fontSize = 13.sp,
+                                            lineHeight = 19.sp
+                                        )
+                                    }
+
+                                    HorizontalDivider(
+                                        color = AzulEv.copy(alpha = 0.16f)
                                     )
 
-                                    Text(
-                                        seleccionado.nombre,
-                                        fontSize = 23.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = colores.onSurface
+                                    FilaDetalleEvento(
+                                        icono = Icons.Default.GridView,
+                                        etiqueta = "Categoría",
+                                        valor = categoria
                                     )
 
-                                    Text(
-                                        seleccionado.descripcion,
-                                        color = colores.onSurfaceVariant
+                                    HorizontalDivider(
+                                        color = AzulEv.copy(alpha = 0.16f)
                                     )
 
-                                    HorizontalDivider()
+                                    FilaDetalleEvento(
+                                        icono = Icons.Default.CalendarToday,
+                                        etiqueta = "Fecha",
+                                        valor = evento.fecha
+                                    )
 
-                                    DatoEv("Categoría", categoria)
-                                    DatoEv("Fecha", seleccionado.fecha)
-                                    DatoEv("Hora", seleccionado.hora)
-                                    DatoEv("Lugar", lugar)
+                                    HorizontalDivider(
+                                        color = AzulEv.copy(alpha = 0.16f)
+                                    )
+
+                                    FilaDetalleEvento(
+                                        icono = Icons.Default.Schedule,
+                                        etiqueta = "Hora",
+                                        valor = evento.hora
+                                    )
+
+                                    HorizontalDivider(
+                                        color = AzulEv.copy(alpha = 0.16f)
+                                    )
+
+                                    FilaDetalleEvento(
+                                        icono = Icons.Default.LocationOn,
+                                        etiqueta = "Lugar",
+                                        valor = lugar
+                                    )
                                 }
                             }
 
-                            Button(
-                                onClick = { onPantallaChange("editar") },
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AzulEv
-                                )
+                                horizontalArrangement =
+                                    Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(Icons.Default.Edit, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Editar evento")
+                                Button(
+                                    onClick = {
+                                        onPantallaChange("editar")
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF073C88)
+                                    ),
+                                    border = BorderStroke(1.dp, AzulEv),
+                                    contentPadding = PaddingValues(
+                                        horizontal = 8.dp,
+                                        vertical = 12.dp
+                                    )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(17.dp)
+                                    )
+
+                                    Spacer(Modifier.width(6.dp))
+
+                                    Text(
+                                        "Editar evento",
+                                        fontSize = 12.sp,
+                                        maxLines = 1
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        onEliminarChange(evento)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF421B22)
+                                    ),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        Color(0xFFE53945)
+                                    ),
+                                    contentPadding = PaddingValues(
+                                        horizontal = 8.dp,
+                                        vertical = 12.dp
+                                    )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFF707A),
+                                        modifier = Modifier.size(17.dp)
+                                    )
+
+                                    Spacer(Modifier.width(6.dp))
+
+                                    Text(
+                                        "Eliminar evento",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        maxLines = 1
+                                    )
+                                }
                             }
 
-                            OutlinedButton(
-                                onClick = {
-                                    onEliminarChange(seleccionado)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    null,
-                                    tint = RojoEv
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text("Eliminar evento", color = RojoEv)
-                            }
+                            Spacer(Modifier.height(20.dp))
+                        }
+                    } else {
+                        LaunchedEffect(pantalla, usuarioIdActivo) {
+                            onPantallaChange("lista")
                         }
                     }
                 }
 
+                // CREAR Y EDITAR EVENTOS
                 "crear", "editar" -> {
-                    val inicial =
-                        if (pantalla == "editar") seleccionado else null
+                    val inicial = if (pantalla == "editar") {
+                        seleccionado?.takeIf {
+                            it.usuarioId == usuarioIdActivo
+                        }
+                    } else {
+                        null
+                    }
 
                     EncabezadoEv(
-                        titulo = if (inicial == null) {
+                        titulo = if (pantalla == "crear") {
                             "Crear evento"
                         } else {
                             "Editar evento"
                         },
                         onVolver = {
                             onPantallaChange(
-                                if (inicial == null) "lista" else "detalle"
+                                if (pantalla == "crear") {
+                                    "lista"
+                                } else {
+                                    "detalle"
+                                }
                             )
                         }
                     )
 
-                    FormularioEv(
-                        eventoInicial = inicial,
-                        categorias = categorias,
-                        lugares = lugares,
-                        onRegistrarLugar = onRegistrarLugar,
-                        onCancelar = {
-                            onPantallaChange(
-                                if (inicial == null) "lista" else "detalle"
-                            )
-                        },
-                        onGuardar = {
-                                nombre, descripcion, fecha, hora,
-                                categoriaId, lugarId ->
-
-                            onGuardarEvento(
-                                inicial,
-                                nombre,
-                                descripcion,
-                                fecha,
-                                hora,
-                                categoriaId,
-                                lugarId
-                            )
-                        }
-                    )
+                    key(
+                        usuarioIdActivo,
+                        pantalla,
+                        inicial?.id
+                    ) {
+                        FormularioEv(
+                            eventoInicial = inicial,
+                            categorias = categorias,
+                            lugares = lugares,
+                            procesando = guardandoEvento,
+                            onRegistrarLugar = onRegistrarLugar,
+                            resultadoRegistroCategoria = resultadoRegistroCategoria,
+                            onLimpiarResultadoCategoria = onLimpiarResultadoCategoria,
+                            onRegistrarCategoria = onRegistrarCategoria,
+                            onCancelar = {
+                                if (!guardandoEvento) {
+                                    onPantallaChange(
+                                        if (inicial == null) {
+                                            "lista"
+                                        } else {
+                                            "detalle"
+                                        }
+                                    )
+                                }
+                            },
+                            onGuardar = {
+                                    nombre, descripcion, fecha,
+                                    hora, categoriaId, lugarId ->
+                                onGuardarEvento(
+                                    inicial,
+                                    nombre,
+                                    descripcion,
+                                    fecha,
+                                    hora,
+                                    categoriaId,
+                                    lugarId
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 
+    // CONFIRMACIÓN DE ELIMINACIÓN
     eliminar?.let { evento ->
-        AlertDialog(
-            onDismissRequest = { onEliminarChange(null) },
-            title = { Text("Eliminar evento") },
-            text = {
-                Text("¿Deseas eliminar el evento \"${evento.nombre}\"?")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { onEliminarEvento(evento) }
-                ) {
-                    Text("Eliminar", color = RojoEv)
+        if (evento.usuarioId == usuarioIdActivo) {
+            AlertDialog(
+                onDismissRequest = {
+                    if (!eliminandoEvento) {
+                        onEliminarChange(null)
+                    }
+                },
+                title = {
+                    Text("Eliminar evento")
+                },
+                text = {
+                    Text(
+                        "¿Deseas eliminar el evento \"${evento.nombre}\"?"
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !eliminandoEvento,
+                        onClick = {
+                            onEliminarEvento(evento)
+                        }
+                    ) {
+                        Text(
+                            if (eliminandoEvento) {
+                                "Eliminando..."
+                            } else {
+                                "Eliminar"
+                            },
+                            color = RojoEv
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !eliminandoEvento,
+                        onClick = {
+                            onEliminarChange(null)
+                        }
+                    ) {
+                        Text("Cancelar")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { onEliminarChange(null) }
-                ) {
-                    Text("Cancelar")
-                }
-            }
-        )
+            )
+        }
     }
 
+    // MENSAJES
     mensaje?.let { texto ->
         AlertDialog(
-            onDismissRequest = { onMensajeChange(null) },
-            title = { Text("AcaMeet") },
-            text = { Text(texto) },
+            onDismissRequest = {
+                onMensajeChange(null)
+            },
+            title = {
+                Text("AcaMeet")
+            },
+            text = {
+                Text(texto)
+            },
             confirmButton = {
                 TextButton(
-                    onClick = { onMensajeChange(null) }
+                    onClick = {
+                        onMensajeChange(null)
+                    }
                 ) {
-                    Text("Aceptar", color = AzulEv)
+                    Text(
+                        "Aceptar",
+                        color = AzulEv
+                    )
                 }
             }
         )
     }
 }
 
-// IMAGEN AUTOMÁTICA SEGÚN EL TEMA
+// =====================================================
+// FILAS DEL DETALLE
+// =====================================================
+
+@Composable
+private fun FilaDetalleEvento(
+    icono: ImageVector,
+    etiqueta: String,
+    valor: String
+) {
+    val colores = MaterialTheme.colorScheme
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 16.dp,
+                vertical = 14.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement =
+            Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(
+            imageVector = icono,
+            contentDescription = null,
+            tint = AzulEv,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Column(
+            verticalArrangement =
+                Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = etiqueta,
+                color = colores.onSurface,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            Text(
+                text = valor,
+                color = colores.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+// =====================================================
+// FILTROS HORIZONTALES
+// =====================================================
+
+@Composable
+private fun SelectorCategoriaFiltroEv(
+    categorias: List<Categoria>,
+    seleccion: Int?,
+    onSeleccionar: (Int?) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement =
+            Arrangement.spacedBy(7.dp)
+    ) {
+        ChipCategoriaEv(
+            nombre = "Todos",
+            seleccionado = seleccion == null,
+            onClick = {
+                onSeleccionar(null)
+            }
+        )
+
+        categorias.forEach { categoria ->
+            ChipCategoriaEv(
+                nombre = categoria.nombre,
+                seleccionado = seleccion == categoria.id,
+                onClick = {
+                    onSeleccionar(categoria.id)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChipCategoriaEv(
+    nombre: String,
+    seleccionado: Boolean,
+    onClick: () -> Unit
+) {
+    val colores = MaterialTheme.colorScheme
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = if (seleccionado) {
+            AzulEv
+        } else {
+            colores.surface
+        },
+        border = BorderStroke(
+            1.dp,
+            if (seleccionado) {
+                AzulEv
+            } else {
+                AzulEv.copy(alpha = 0.18f)
+            }
+        )
+    ) {
+        Text(
+            text = nombre,
+            modifier = Modifier.padding(
+                horizontal = 15.dp,
+                vertical = 9.dp
+            ),
+            fontSize = 12.sp,
+            color = if (seleccionado) {
+                Color.White
+            } else {
+                colores.onSurface
+            },
+            maxLines = 1
+        )
+    }
+}
+
+// =====================================================
+// IMAGEN AUTOMÁTICA
+// =====================================================
+
 @Composable
 private fun ImagenEventoEv(
     nombre: String,
     categoria: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    imagenUrl: String = ""
 ) {
-    val url = remember(nombre, categoria) {
-        ImagenEventoUtils.obtenerImagen(nombre, categoria)
+    val url = remember(nombre, categoria, imagenUrl) {
+        imagenUrl.takeIf { it.isNotBlank() }
+            ?: ImagenEventoUtils.obtenerImagen(
+                nombre,
+                categoria
+            )
     }
 
     var error by remember(url) {
@@ -564,7 +1131,7 @@ private fun ImagenEventoEv(
             .background(Color(0xFF08283B)),
         contentAlignment = Alignment.Center
     ) {
-        if (error) {
+        if (error || url.isBlank()) {
             Icon(
                 Icons.Default.Event,
                 contentDescription = "Imagen no disponible",
@@ -577,11 +1144,17 @@ private fun ImagenEventoEv(
                 contentDescription = "Imagen de $nombre",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                onError = { error = true }
+                onError = {
+                    error = true
+                }
             )
         }
     }
 }
+
+// =====================================================
+// TARJETAS DE EVENTOS
+// =====================================================
 
 @Composable
 private fun TarjetaEventoEv(
@@ -608,17 +1181,20 @@ private fun TarjetaEventoEv(
         Row(
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp)
         ) {
             ImagenEventoEv(
                 nombre = evento.nombre,
                 categoria = categoria,
+                imagenUrl = evento.imagenUrl,
                 modifier = Modifier.size(96.dp)
             )
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement =
+                    Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     categoria,
@@ -636,14 +1212,25 @@ private fun TarjetaEventoEv(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                TextoIconoEv(Icons.Default.CalendarToday, evento.fecha)
-                TextoIconoEv(Icons.Default.Schedule, evento.hora)
-                TextoIconoEv(Icons.Default.LocationOn, lugar)
+                TextoIconoEv(
+                    Icons.Default.CalendarToday,
+                    evento.fecha
+                )
+
+                TextoIconoEv(
+                    Icons.Default.Schedule,
+                    evento.hora
+                )
+
+                TextoIconoEv(
+                    Icons.Default.LocationOn,
+                    lugar
+                )
             }
 
             Icon(
                 Icons.Default.ChevronRight,
-                "Ver detalle",
+                contentDescription = "Ver detalle",
                 tint = colores.onSurfaceVariant
             )
         }
@@ -652,17 +1239,21 @@ private fun TarjetaEventoEv(
 
 @Composable
 private fun TextoIconoEv(
-    icono: androidx.compose.ui.graphics.vector.ImageVector,
+    icono: ImageVector,
     texto: String
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(
             icono,
-            null,
+            contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(12.dp)
         )
+
         Spacer(Modifier.width(5.dp))
+
         Text(
             texto,
             fontSize = 11.sp,
@@ -673,16 +1264,22 @@ private fun TextoIconoEv(
     }
 }
 
+// =====================================================
+// ENCABEZADO CREAR Y EDITAR
+// =====================================================
+
 @Composable
 private fun EncabezadoEv(
     titulo: String,
     onVolver: () -> Unit
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         IconButton(onClick = onVolver) {
             Icon(
                 Icons.Default.ArrowBack,
-                "Volver",
+                contentDescription = "Volver",
                 tint = AzulEv
             )
         }
@@ -694,63 +1291,13 @@ private fun EncabezadoEv(
             color = MaterialTheme.colorScheme.onBackground
         )
     }
+
     Spacer(Modifier.height(14.dp))
 }
 
-@Composable
-private fun DatoEv(etiqueta: String, valor: String) {
-    Column {
-        Text(etiqueta, color = AzulEv, fontSize = 13.sp)
-        Text(
-            valor,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-private fun SelectorCategoriaFiltroEv(
-    categorias: List<Categoria>,
-    seleccion: Int?,
-    onSeleccionar: (Int?) -> Unit
-) {
-    var expandido by remember { mutableStateOf(false) }
-
-    Box {
-        OutlinedButton(onClick = { expandido = true }) {
-            Text(
-                categorias.find {
-                    it.id == seleccion
-                }?.nombre ?: "Todas las categorías",
-                color = AzulEv
-            )
-            Icon(Icons.Default.ArrowDropDown, null, tint = AzulEv)
-        }
-
-        DropdownMenu(
-            expanded = expandido,
-            onDismissRequest = { expandido = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("Todas las categorías") },
-                onClick = {
-                    onSeleccionar(null)
-                    expandido = false
-                }
-            )
-
-            categorias.forEach { categoria ->
-                DropdownMenuItem(
-                    text = { Text(categoria.nombre) },
-                    onClick = {
-                        onSeleccionar(categoria.id)
-                        expandido = false
-                    }
-                )
-            }
-        }
-    }
-}
+// =====================================================
+// SELECTORES DE CATEGORÍAS Y LUGARES
+// =====================================================
 
 @Composable
 private fun <T> SelectorEv(
@@ -761,11 +1308,14 @@ private fun <T> SelectorEv(
     obtenerNombre: (T) -> String,
     onSeleccionar: (Int) -> Unit
 ) {
-    var expandido by remember { mutableStateOf(false) }
+    var expandido by remember {
+        mutableStateOf(false)
+    }
 
     val nombre = opciones.find {
         obtenerId(it) == seleccionadoId
-    }?.let(obtenerNombre) ?: "Seleccionar $etiqueta"
+    }?.let(obtenerNombre)
+        ?: "Seleccionar $etiqueta"
 
     Column {
         Text(
@@ -778,7 +1328,9 @@ private fun <T> SelectorEv(
 
         Box {
             OutlinedButton(
-                onClick = { expandido = true },
+                onClick = {
+                    expandido = true
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -786,20 +1338,25 @@ private fun <T> SelectorEv(
                     modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface
                 )
+
                 Icon(
                     Icons.Default.ArrowDropDown,
-                    null,
+                    contentDescription = null,
                     tint = AzulEv
                 )
             }
 
             DropdownMenu(
                 expanded = expandido,
-                onDismissRequest = { expandido = false }
+                onDismissRequest = {
+                    expandido = false
+                }
             ) {
                 opciones.forEach { opcion ->
                     DropdownMenuItem(
-                        text = { Text(obtenerNombre(opcion)) },
+                        text = {
+                            Text(obtenerNombre(opcion))
+                        },
                         onClick = {
                             onSeleccionar(obtenerId(opcion))
                             expandido = false
@@ -811,18 +1368,27 @@ private fun <T> SelectorEv(
     }
 }
 
+// =====================================================
+// FORMULARIO DE EVENTOS
+// =====================================================
+
 @Composable
 private fun FormularioEv(
     eventoInicial: Evento?,
     categorias: List<Categoria>,
     lugares: List<Lugar>,
     onRegistrarLugar: (
-        String, (Boolean, String) -> Unit
+        String,
+        (Boolean, String) -> Unit
     ) -> Unit,
+    resultadoRegistroCategoria: CategoriaMensaje?,
+    onLimpiarResultadoCategoria: () -> Unit,
+    onRegistrarCategoria: (String) -> Unit,
     onCancelar: () -> Unit,
     onGuardar: (
         String, String, String, String, Int, Int
-    ) -> Unit
+    ) -> Unit,
+    procesando: Boolean = false
 ) {
     val context = LocalContext.current
     val colores = MaterialTheme.colorScheme
@@ -830,34 +1396,91 @@ private fun FormularioEv(
     var nombre by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.nombre ?: "")
     }
+
     var descripcion by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.descripcion ?: "")
     }
+
     var fecha by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.fecha ?: "")
     }
+
     var hora by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.hora ?: "")
     }
+
     var categoriaId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.categoriaId)
     }
+
     var lugarId by remember(eventoInicial) {
         mutableStateOf(eventoInicial?.lugarId)
     }
-    var error by remember { mutableStateOf<String?>(null) }
 
-    var mostrarLugar by remember {
+    var error by remember(eventoInicial) {
+        mutableStateOf<String?>(null)
+    }
+
+    var mostrarLugar by remember(eventoInicial) {
         mutableStateOf(false)
     }
-    var nuevoLugar by remember {
+
+    var nuevoLugar by remember(eventoInicial) {
         mutableStateOf("")
     }
-    var guardandoLugar by remember {
+
+    var guardandoLugar by remember(eventoInicial) {
         mutableStateOf(false)
     }
-    var errorLugar by remember {
+
+    var errorLugar by remember(eventoInicial) {
         mutableStateOf<String?>(null)
+    }
+
+    var mostrarCategoria by remember(eventoInicial) {
+        mutableStateOf(false)
+    }
+
+    var nuevaCategoria by remember(eventoInicial) {
+        mutableStateOf("")
+    }
+
+    var guardandoCategoria by remember(eventoInicial) {
+        mutableStateOf(false)
+    }
+
+    var errorCategoria by remember(eventoInicial) {
+        mutableStateOf<String?>(null)
+    }
+
+    var categoriaPendiente by remember(eventoInicial) {
+        mutableStateOf<String?>(null)
+    }
+
+    LaunchedEffect(resultadoRegistroCategoria, categorias) {
+        val resultado = resultadoRegistroCategoria ?: return@LaunchedEffect
+        if (!guardandoCategoria) return@LaunchedEffect
+
+        if (!resultado.exitoso) {
+            guardandoCategoria = false
+            errorCategoria = resultado.texto
+            categoriaPendiente = null
+            onLimpiarResultadoCategoria()
+        } else {
+            val creada = categorias.firstOrNull {
+                it.nombre.equals(categoriaPendiente, ignoreCase = true)
+            }
+            if (creada != null) {
+                categoriaId = creada.id
+                guardandoCategoria = false
+                mostrarCategoria = false
+                nuevaCategoria = ""
+                categoriaPendiente = null
+                errorCategoria = null
+                error = null
+                onLimpiarResultadoCategoria()
+            }
+        }
     }
 
     val categoriaNombre = categorias.find {
@@ -868,7 +1491,8 @@ private fun FormularioEv(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement =
+            Arrangement.spacedBy(14.dp)
     ) {
         Text(
             "Información del evento",
@@ -876,28 +1500,37 @@ private fun FormularioEv(
             fontWeight = FontWeight.Bold
         )
 
+        // TÍTULO
         OutlinedTextField(
             value = nombre,
             onValueChange = {
                 nombre = it
                 error = null
             },
-            label = { Text("Título del evento *") },
+            label = {
+                Text("Título del evento *")
+            },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            enabled = !procesando
         )
 
+        // DESCRIPCIÓN
         OutlinedTextField(
             value = descripcion,
             onValueChange = {
                 descripcion = it
                 error = null
             },
-            label = { Text("Descripción *") },
+            label = {
+                Text("Descripción *")
+            },
             modifier = Modifier.fillMaxWidth(),
-            minLines = 3
+            minLines = 3,
+            enabled = !procesando
         )
 
+        // CATEGORÍA
         SelectorEv(
             etiqueta = "Categoría *",
             opciones = categorias,
@@ -905,15 +1538,35 @@ private fun FormularioEv(
             obtenerId = { it.id },
             obtenerNombre = { it.nombre },
             onSeleccionar = {
-                categoriaId = it
-                error = null
+                if (!procesando) {
+                    categoriaId = it
+                    error = null
+                }
             }
         )
 
-        // VISTA PREVIA AUTOMÁTICA
-        if (nombre.isNotBlank() || categoriaNombre.isNotBlank()) {
+        // REGISTRAR CATEGORÍA SIN SALIR DEL EVENTO
+        TextButton(
+            onClick = {
+                nuevaCategoria = ""
+                errorCategoria = null
+                onLimpiarResultadoCategoria()
+                mostrarCategoria = true
+            },
+            enabled = !procesando && !guardandoCategoria
+        ) {
+            Icon(Icons.Default.AddCircleOutline, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text("Registrar nueva categoría", color = AzulEv)
+        }
+
+        // IMAGEN AUTOMÁTICA
+        if (
+            nombre.isNotBlank() ||
+            categoriaNombre.isNotBlank()
+        ) {
             Text(
-                "Imagen automática del evento",
+                "Imagen referencial del evento",
                 color = AzulEv,
                 fontWeight = FontWeight.Bold
             )
@@ -921,14 +1574,21 @@ private fun FormularioEv(
             ImagenEventoEv(
                 nombre = nombre,
                 categoria = categoriaNombre,
+                imagenUrl = if (
+                    eventoInicial?.nombre == nombre &&
+                    eventoInicial.categoriaId == categoriaId
+                ) {
+                    eventoInicial.imagenUrl
+                } else {
+                    ""
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
             )
 
             Text(
-                "La imagen se selecciona automáticamente " +
-                        "según el título y la categoría.",
+                "   ",
                 color = colores.onSurfaceVariant,
                 fontSize = 12.sp
             )
@@ -940,7 +1600,11 @@ private fun FormularioEv(
             fontWeight = FontWeight.Bold
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp)
+        ) {
+            // FECHA
             OutlinedButton(
                 onClick = {
                     val cal = Calendar.getInstance()
@@ -955,16 +1619,24 @@ private fun FormularioEv(
                                 mes + 1,
                                 dia
                             )
+                            error = null
                         },
                         cal.get(Calendar.YEAR),
                         cal.get(Calendar.MONTH),
                         cal.get(Calendar.DAY_OF_MONTH)
                     ).show()
                 },
+                enabled = !procesando,
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(Icons.Default.Event, null, tint = AzulEv)
+                Icon(
+                    Icons.Default.Event,
+                    contentDescription = null,
+                    tint = AzulEv
+                )
+
                 Spacer(Modifier.width(4.dp))
+
                 Text(
                     fecha.ifBlank { "Fecha" },
                     fontSize = 12.sp,
@@ -972,6 +1644,7 @@ private fun FormularioEv(
                 )
             }
 
+            // HORA
             OutlinedButton(
                 onClick = {
                     val cal = Calendar.getInstance()
@@ -985,16 +1658,24 @@ private fun FormularioEv(
                                 h,
                                 m
                             )
+                            error = null
                         },
                         cal.get(Calendar.HOUR_OF_DAY),
                         cal.get(Calendar.MINUTE),
                         true
                     ).show()
                 },
+                enabled = !procesando,
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(Icons.Default.Schedule, null, tint = AzulEv)
+                Icon(
+                    Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = AzulEv
+                )
+
                 Spacer(Modifier.width(4.dp))
+
                 Text(
                     hora.ifBlank { "Hora" },
                     fontSize = 12.sp,
@@ -1003,6 +1684,7 @@ private fun FormularioEv(
             }
         }
 
+        // LUGAR
         SelectorEv(
             etiqueta = "Lugar *",
             opciones = lugares,
@@ -1010,48 +1692,73 @@ private fun FormularioEv(
             obtenerId = { it.id },
             obtenerNombre = { it.nombre },
             onSeleccionar = {
-                lugarId = it
-                error = null
+                if (!procesando) {
+                    lugarId = it
+                    error = null
+                }
             }
         )
 
+        // REGISTRAR LUGAR DESDE EL FORMULARIO
         TextButton(
             onClick = {
                 nuevoLugar = ""
                 errorLugar = null
                 mostrarLugar = true
-            }
+            },
+            enabled = !procesando
         ) {
-            Icon(Icons.Default.AddCircleOutline, null)
+            Icon(
+                Icons.Default.AddCircleOutline,
+                contentDescription = null
+            )
+
             Spacer(Modifier.width(6.dp))
-            Text("Registrar nuevo lugar", color = AzulEv)
+
+            Text(
+                "Registrar nuevo lugar",
+                color = AzulEv
+            )
         }
 
         error?.let {
-            Text(it, color = RojoEv)
+            Text(
+                it,
+                color = RojoEv
+            )
         }
 
+        // GUARDAR EVENTO
         Button(
             onClick = {
+                val nombreLimpio = nombre.trim()
+                val descripcionLimpia = descripcion.trim()
+
                 when {
-                    nombre.isBlank() ||
-                            descripcion.isBlank() ->
+                    nombreLimpio.isBlank() ||
+                            descripcionLimpia.isBlank() -> {
                         error = "Completa el título y la descripción"
+                    }
 
-                    categoriaId == null ->
-                        error = "Selecciona una categoría"
+                    categoriaId == null ||
+                            categorias.none { it.id == categoriaId } -> {
+                        error = "Selecciona una categoría válida"
+                    }
 
-                    lugarId == null ->
-                        error = "Selecciona un lugar"
+                    lugarId == null ||
+                            lugares.none { it.id == lugarId } -> {
+                        error = "Selecciona un lugar válido"
+                    }
 
                     fecha.isBlank() ||
-                            hora.isBlank() ->
+                            hora.isBlank() -> {
                         error = "Selecciona la fecha y la hora"
+                    }
 
                     else -> {
                         onGuardar(
-                            nombre.trim(),
-                            descripcion.trim(),
+                            nombreLimpio,
+                            descripcionLimpia,
                             fecha,
                             hora,
                             categoriaId!!,
@@ -1060,22 +1767,24 @@ private fun FormularioEv(
                     }
                 }
             },
+            enabled = !procesando && !guardandoLugar && !guardandoCategoria,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = AzulEv
             )
         ) {
             Text(
-                if (eventoInicial == null) {
-                    "Crear evento"
-                } else {
-                    "Guardar cambios"
+                when {
+                    procesando -> "Guardando..."
+                    eventoInicial == null -> "Crear evento"
+                    else -> "Guardar cambios"
                 }
             )
         }
 
         TextButton(
             onClick = onCancelar,
+            enabled = !procesando,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Cancelar")
@@ -1084,12 +1793,80 @@ private fun FormularioEv(
         Spacer(Modifier.height(20.dp))
     }
 
+    // DIÁLOGO PARA REGISTRAR NUEVA CATEGORÍA
+    if (mostrarCategoria) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!guardandoCategoria) mostrarCategoria = false
+            },
+            title = { Text("Registrar nueva categoría") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = nuevaCategoria,
+                        onValueChange = {
+                            nuevaCategoria = it
+                            errorCategoria = null
+                        },
+                        label = { Text("Nombre de la categoría") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !guardandoCategoria,
+                        singleLine = true
+                    )
+                    errorCategoria?.let {
+                        Text(it, color = RojoEv)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !guardandoCategoria,
+                    onClick = {
+                        val limpio = nuevaCategoria.trim()
+                            .replace(Regex("\\s+"), " ")
+                        when {
+                            limpio.isBlank() -> {
+                                errorCategoria = "Ingresa el nombre"
+                            }
+                            categorias.any {
+                                it.nombre.equals(limpio, ignoreCase = true)
+                            } -> {
+                                errorCategoria = "La categoría ya existe"
+                            }
+                            else -> {
+                                categoriaPendiente = limpio
+                                guardandoCategoria = true
+                                onRegistrarCategoria(limpio)
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        if (guardandoCategoria) "Guardando..." else "Guardar",
+                        color = AzulEv
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !guardandoCategoria,
+                    onClick = { mostrarCategoria = false }
+                ) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // DIÁLOGO PARA REGISTRAR NUEVO LUGAR
     if (mostrarLugar) {
         AlertDialog(
             onDismissRequest = {
-                if (!guardandoLugar) mostrarLugar = false
+                if (!guardandoLugar) {
+                    mostrarLugar = false
+                }
             },
-            title = { Text("Registrar nuevo lugar") },
+            title = {
+                Text("Registrar nuevo lugar")
+            },
             text = {
                 Column {
                     OutlinedTextField(
@@ -1098,13 +1875,19 @@ private fun FormularioEv(
                             nuevoLugar = it
                             errorLugar = null
                         },
-                        label = { Text("Nombre del lugar") },
+                        label = {
+                            Text("Nombre del lugar")
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !guardandoLugar
+                        enabled = !guardandoLugar,
+                        singleLine = true
                     )
 
                     errorLugar?.let {
-                        Text(it, color = RojoEv)
+                        Text(
+                            it,
+                            color = RojoEv
+                        )
                     }
                 }
             },
@@ -1112,45 +1895,59 @@ private fun FormularioEv(
                 TextButton(
                     enabled = !guardandoLugar,
                     onClick = {
-                        val limpio = nuevoLugar.trim()
+                        val limpio = nuevoLugar
+                            .trim()
+                            .replace(Regex("\\s+"), " ")
 
                         when {
-                            limpio.isBlank() ->
+                            limpio.isBlank() -> {
                                 errorLugar = "Ingresa el nombre"
+                            }
 
                             lugares.any {
                                 it.nombre.equals(
                                     limpio,
                                     ignoreCase = true
                                 )
-                            } ->
+                            } -> {
                                 errorLugar = "El lugar ya existe"
+                            }
 
                             else -> {
                                 guardandoLugar = true
 
                                 onRegistrarLugar(limpio) {
-                                        exitoso, mensaje ->
+                                        exitoso, texto ->
+
                                     guardandoLugar = false
 
                                     if (exitoso) {
                                         mostrarLugar = false
                                         nuevoLugar = ""
                                     } else {
-                                        errorLugar = mensaje
+                                        errorLugar = texto
                                     }
                                 }
                             }
                         }
                     }
                 ) {
-                    Text("Guardar", color = AzulEv)
+                    Text(
+                        if (guardandoLugar) {
+                            "Guardando..."
+                        } else {
+                            "Guardar"
+                        },
+                        color = AzulEv
+                    )
                 }
             },
             dismissButton = {
                 TextButton(
                     enabled = !guardandoLugar,
-                    onClick = { mostrarLugar = false }
+                    onClick = {
+                        mostrarLugar = false
+                    }
                 ) {
                     Text("Cancelar")
                 }
@@ -1158,3 +1955,4 @@ private fun FormularioEv(
         )
     }
 }
+

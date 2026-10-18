@@ -6,21 +6,37 @@ import kotlinx.coroutines.flow.Flow
 
 interface LugarRepository {
 
-    // Obtener todos los lugares
-    fun obtenerLugares(): Flow<List<Lugar>>
+    // OBTENER LOS LUGARES DEL USUARIO ACTIVO
+    fun obtenerLugares(
+        usuarioId: Int
+    ): Flow<List<Lugar>>
 
-    // Registrar un nuevo lugar
-    suspend fun insertarLugar(lugar: Lugar)
+    // REGISTRAR UN LUGAR
+    suspend fun insertarLugar(
+        lugar: Lugar
+    )
 
-    // Buscar un lugar por ID
-    suspend fun obtenerLugarPorId(id: Int): Lugar?
+    // BUSCAR UN LUGAR POR ID Y USUARIO
+    suspend fun obtenerLugarPorId(
+        id: Int,
+        usuarioId: Int
+    ): Lugar?
 
-    // Buscar un lugar por nombre
-    suspend fun obtenerLugarPorNombre(nombre: String): Lugar?
+    // BUSCAR UN LUGAR POR NOMBRE Y USUARIO
+    suspend fun obtenerLugarPorNombre(
+        nombre: String,
+        usuarioId: Int
+    ): Lugar?
 
-    // Actualizar un lugar existente
-    suspend fun actualizarLugar(lugar: Lugar)
+    // ACTUALIZAR UN LUGAR DEL USUARIO
+    suspend fun actualizarLugar(
+        lugar: Lugar,
+        usuarioId: Int
+    ): Int
 
-    // Eliminar un lugar
-    suspend fun eliminarLugar(lugar: Lugar)
+    // ELIMINAR UN LUGAR DEL USUARIO
+    suspend fun eliminarLugar(
+        lugar: Lugar,
+        usuarioId: Int
+    ): Int
 }

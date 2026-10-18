@@ -2,58 +2,129 @@
 package com.example.acameet.data.repository
 
 import com.example.acameet.data.local.dao.EventoDao
+import com.example.acameet.data.local.dao.CategoriaDao
+import com.example.acameet.data.local.dao.LugarDao
 import com.example.acameet.data.local.entity.Evento
 import kotlinx.coroutines.flow.Flow
 
-// IMPLEMENTACIÓN DEL REPOSITORIO DE EVENTOS
 class EventoRepositoryImpl(
-    private val eventoDao: EventoDao
+    private val eventoDao: EventoDao,
+    private val categoriaDao: CategoriaDao,
+    private val lugarDao: LugarDao
 ) : EventoRepository {
 
-    // OBTENER TODOS LOS EVENTOS
-    override fun obtenerEventos(): Flow<List<Evento>> {
-        return eventoDao.obtenerEventos()
+    // OBTENER EVENTOS DEL USUARIO
+    override fun obtenerEventos(
+        usuarioId: Int
+    ): Flow<List<Evento>> {
+        return eventoDao.obtenerEventos(usuarioId)
     }
 
-    // OBTENER UN EVENTO POR SU ID
+    // OBTENER EVENTO POR ID
     override suspend fun obtenerEventoPorId(
-        id: Int
+        id: Int,
+        usuarioId: Int
     ): Evento? {
-        return eventoDao.obtenerEventoPorId(id)
+        return eventoDao.obtenerEventoPorId(id, usuarioId)
     }
 
-    // REGISTRAR UN NUEVO EVENTO
+    // VALIDAR CATEGORÍA Y LUGAR DEL USUARIO
+    private suspend fun validarReferencias(
+        evento: Evento,
+        usuarioId: Int
+    ) {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para administrar eventos"
+        }
+
+        val categoria = categoriaDao.obtenerCategoriaPorId(
+            evento.categoriaId,
+            usuarioId
+        )
+
+        require(categoria != null) {
+            "La categoría seleccionada no pertenece a tu cuenta"
+        }
+
+        val lugar = lugarDao.obtenerLugarPorId(
+            evento.lugarId,
+            usuarioId
+        )
+
+        require(lugar != null) {
+            "El lugar seleccionado no pertenece a tu cuenta"
+        }
+    }
+
+    // REGISTRAR EVENTO
     override suspend fun insertarEvento(
         evento: Evento
     ) {
+        validarReferencias(
+            evento = evento,
+            usuarioId = evento.usuarioId
+        )
+
         eventoDao.insertarEvento(evento)
     }
 
-    // ACTUALIZAR UN EVENTO EXISTENTE
+    // ACTUALIZAR EVENTO
     override suspend fun actualizarEvento(
-        evento: Evento
-    ) {
-        eventoDao.actualizarEvento(evento)
+        evento: Evento,
+        usuarioId: Int
+    ): Int {
+        validarReferencias(
+            evento = evento,
+            usuarioId = usuarioId
+        )
+
+        return eventoDao.actualizarEvento(
+            id = evento.id,
+            usuarioId = usuarioId,
+            nombre = evento.nombre,
+            descripcion = evento.descripcion,
+            fecha = evento.fecha,
+            hora = evento.hora,
+            categoriaId = evento.categoriaId,
+            lugarId = evento.lugarId,
+            imagenUrl = evento.imagenUrl
+        )
     }
 
-    // ELIMINAR UN EVENTO
+    // ELIMINAR EVENTO
     override suspend fun eliminarEvento(
-        evento: Evento
-    ) {
-        eventoDao.eliminarEvento(evento)
+        evento: Evento,
+        usuarioId: Int
+    ): Int {
+        require(usuarioId > 0) {
+            "Debes iniciar sesión para eliminar eventos"
+        }
+
+        return eventoDao.eliminarEvento(
+            id = evento.id,
+            usuarioId = usuarioId
+        )
     }
 
-    // BUSCAR EVENTOS POR NOMBRE O DESCRIPCIÓN
+    // BUSCAR EVENTOS DEL USUARIO
     override fun buscarEventos(
-        texto: String
+        texto: String,
+        usuarioId: Int
     ): Flow<List<Evento>> {
-        return eventoDao.buscarEventos(texto)
+        return eventoDao.buscarEventos(
+            texto = texto,
+            usuarioId = usuarioId
+        )
     }
 
     // FILTRAR EVENTOS POR CATEGORÍA
     override fun obtenerEventosPorCategoria(
-        categoriaId: Int
+        categoriaId: Int,
+        usuarioId: Int
     ): Flow<List<Evento>> {
-        return eventoDao.obtenerEventosPorCategoria(categoriaId)
+        return eventoDao.obtenerEventosPorCategoria(
+            categoriaId = categoriaId,
+            usuarioId = usuarioId
+        )
     }
 }

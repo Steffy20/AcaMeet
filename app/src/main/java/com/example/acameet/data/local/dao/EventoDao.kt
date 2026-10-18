@@ -3,8 +3,6 @@ package com.example.acameet.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
-import androidx.room.Update
-import androidx.room.Delete
 import androidx.room.Query
 import com.example.acameet.data.local.entity.Evento
 import kotlinx.coroutines.flow.Flow
@@ -12,68 +10,104 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface EventoDao {
 
-    // OBTENER TODOS LOS EVENTOS
-    // Los eventos se muestran ordenados por fecha y hora.
+    // OBTENER EVENTOS DEL USUARIO ACTIVO
     @Query(
         """
         SELECT * FROM eventos
+        WHERE usuarioId = :usuarioId
         ORDER BY fecha ASC, hora ASC
         """
     )
-    fun obtenerEventos(): Flow<List<Evento>>
+    fun obtenerEventos(
+        usuarioId: Int
+    ): Flow<List<Evento>>
 
-    // OBTENER UN EVENTO POR SU ID
+    // OBTENER UN EVENTO POR ID Y USUARIO
     @Query(
         """
         SELECT * FROM eventos
-        WHERE id = :id
+        WHERE id = :id AND usuarioId = :usuarioId
         LIMIT 1
         """
     )
     suspend fun obtenerEventoPorId(
-        id: Int
+        id: Int,
+        usuarioId: Int
     ): Evento?
 
-    // REGISTRAR UN NUEVO EVENTO
+    // REGISTRAR UN EVENTO
     @Insert
     suspend fun insertarEvento(
         evento: Evento
     )
 
-    // ACTUALIZAR UN EVENTO EXISTENTE
-    @Update
+    // ACTUALIZAR SOLO EVENTOS DEL USUARIO
+    @Query(
+        """
+        UPDATE eventos
+        SET nombre = :nombre,
+            descripcion = :descripcion,
+            fecha = :fecha,
+            hora = :hora,
+            categoriaId = :categoriaId,
+            lugarId = :lugarId,
+            imagenUrl = :imagenUrl
+        WHERE id = :id
+          AND usuarioId = :usuarioId
+        """
+    )
     suspend fun actualizarEvento(
-        evento: Evento
-    )
+        id: Int,
+        usuarioId: Int,
+        nombre: String,
+        descripcion: String,
+        fecha: String,
+        hora: String,
+        categoriaId: Int,
+        lugarId: Int,
+        imagenUrl: String
+    ): Int
 
-    // ELIMINAR UN EVENTO
-    @Delete
+    // ELIMINAR SOLO EVENTOS DEL USUARIO
+    @Query(
+        """
+        DELETE FROM eventos
+        WHERE id = :id AND usuarioId = :usuarioId
+        """
+    )
     suspend fun eliminarEvento(
-        evento: Evento
-    )
+        id: Int,
+        usuarioId: Int
+    ): Int
 
-    // BUSCAR EVENTOS POR NOMBRE O DESCRIPCIÓN
+    // BUSCAR EVENTOS DEL USUARIO
     @Query(
         """
         SELECT * FROM eventos
-        WHERE nombre LIKE '%' || :texto || '%'
-           OR descripcion LIKE '%' || :texto || '%'
+        WHERE usuarioId = :usuarioId
+          AND (
+              nombre LIKE '%' || :texto || '%'
+              OR descripcion LIKE '%' || :texto || '%'
+          )
         ORDER BY fecha ASC, hora ASC
         """
     )
     fun buscarEventos(
-        texto: String
+        texto: String,
+        usuarioId: Int
     ): Flow<List<Evento>>
 
-    // FILTRAR EVENTOS POR CATEGORÍA
+    // FILTRAR EVENTOS POR CATEGORÍA Y USUARIO
     @Query(
         """
         SELECT * FROM eventos
         WHERE categoriaId = :categoriaId
+          AND usuarioId = :usuarioId
         ORDER BY fecha ASC, hora ASC
         """
     )
     fun obtenerEventosPorCategoria(
-        categoriaId: Int
+        categoriaId: Int,
+        usuarioId: Int
     ): Flow<List<Evento>>
 }

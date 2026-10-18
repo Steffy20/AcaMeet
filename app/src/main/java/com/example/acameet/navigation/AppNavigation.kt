@@ -1,4 +1,3 @@
-
 package com.example.acameet.navigation
 
 import androidx.compose.runtime.*
@@ -11,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -35,7 +35,12 @@ import com.example.acameet.ui.EventoViewModelFactory
 import com.example.acameet.ui.theme.AcaMeetTheme
 import com.example.acameet.ui.screens.*
 
+// =====================================================
+// RUTAS DE NAVEGACIÓN
+// =====================================================
+
 private object Rutas {
+
     const val SPLASH = "splash"
     const val LOGIN = "login"
     const val REGISTER = "register"
@@ -46,11 +51,17 @@ private object Rutas {
     const val CONFIGURACION = "configuracion"
 }
 
+// =====================================================
+// NAVEGACIÓN ENTRE PANTALLAS
+// =====================================================
+
 private fun NavHostController.irAPantalla(
     ruta: String
 ) {
     navigate(ruta) {
+
         launchSingleTop = true
+
         restoreState = true
 
         popUpTo(graph.startDestinationId) {
@@ -59,52 +70,89 @@ private fun NavHostController.irAPantalla(
     }
 }
 
+// =====================================================
+// NAVEGACIÓN PRINCIPAL DE ACAMEET
+// =====================================================
+
 @Composable
 fun AppNavigation() {
 
     val context = LocalContext.current
+
     val scope = rememberCoroutineScope()
+
     val navController = rememberNavController()
 
+    // =====================================================
+    // SESIÓN DEL USUARIO
+    // =====================================================
+
+    val usuarioIdSesion = remember {
+        MutableStateFlow<Int?>(null)
+    }
+
+    val usuarioIdActivo by usuarioIdSesion
+        .collectAsStateWithLifecycle()
+
+    val sesionActiva =
+        usuarioIdActivo != null && usuarioIdActivo!! > 0
+
+    // =====================================================
     // BASE DE DATOS ROOM
+    // =====================================================
+
     val database = remember(context) {
+
         AcaMeetDatabase.getDatabase(
             context.applicationContext
         )
     }
 
+    // =====================================================
     // REPOSITORIOS
+    // =====================================================
+
     val usuarioRepository = remember(database) {
+
         UsuarioRepositoryImpl(
             database.usuarioDao()
         )
     }
 
     val categoriaRepository = remember(database) {
+
         CategoriaRepositoryImpl(
             database.categoriaDao()
         )
     }
 
     val lugarRepository = remember(database) {
+
         LugarRepositoryImpl(
             database.lugarDao()
         )
     }
 
     val eventoRepository = remember(database) {
+
         EventoRepositoryImpl(
-            database.eventoDao()
+            eventoDao = database.eventoDao(),
+            categoriaDao = database.categoriaDao(),
+            lugarDao = database.lugarDao()
         )
     }
 
     val preferencesRepository = remember(context) {
+
         UserPreferencesRepositoryImpl(
             context.applicationContext
         )
     }
 
-    // VIEWMODELS CON FÁBRICAS MANUALES
+    // =====================================================
+    // VIEWMODELS
+    // =====================================================
+
     val usuarioViewModel: UsuarioViewModel = viewModel(
         factory = UsuarioViewModelFactory(
             usuarioRepository
@@ -113,19 +161,22 @@ fun AppNavigation() {
 
     val categoriaViewModel: CategoriaViewModel = viewModel(
         factory = CategoriaViewModelFactory(
-            categoriaRepository
+            repository = categoriaRepository,
+            usuarioIdActivo = usuarioIdSesion
         )
     )
 
     val lugarViewModel: LugarViewModel = viewModel(
         factory = LugarViewModelFactory(
-            lugarRepository
+            repository = lugarRepository,
+            usuarioIdActivo = usuarioIdSesion
         )
     )
 
     val eventoViewModel: EventoViewModel = viewModel(
         factory = EventoViewModelFactory(
-            eventoRepository
+            repository = eventoRepository,
+            usuarioIdActivo = usuarioIdSesion
         )
     )
 
@@ -137,19 +188,20 @@ fun AppNavigation() {
             )
         )
 
-    // PREFERENCIAS
+    // =====================================================
+    // PREFERENCIAS DEL USUARIO
+    // =====================================================
+
     val preferencias by preferencesRepository
         .userPreferencesFlow
         .collectAsStateWithLifecycle(
             initialValue = null
         )
 
-    // SESIÓN ACTUAL
-    var usuarioIdActivo by remember {
-        mutableStateOf<Int?>(null)
-    }
+    // =====================================================
+    // ESTADO DE NAVEGACIÓN DE EVENTOS
+    // =====================================================
 
-    // ESTADO INTERNO DE EVENTOS
     var pantallaInicialEvento by remember {
         mutableStateOf("lista")
     }
@@ -159,17 +211,56 @@ fun AppNavigation() {
     }
 
     fun limpiarNavegacionEventos() {
+
         pantallaInicialEvento = "lista"
+
         eventoIdSeleccionado = null
     }
 
-    fun abrirListaEventos() {
+    fun limpiarEstadoSesion() {
+
         limpiarNavegacionEventos()
+
         eventoViewModel.limpiarFiltros()
-        navController.irAPantalla(Rutas.EVENTOS)
     }
 
-    // RECUPERAR SESIÓN DESPUÉS DEL SPLASH
+    fun abrirListaEventos() {
+
+        limpiarEstadoSesion()
+
+        navController.irAPantalla(
+            Rutas.EVENTOS
+        )
+    }
+
+    // =====================================================
+    // PROTEGER RUTAS PRIVADAS
+    // =====================================================
+
+    fun comprobarSesion(): Boolean {
+
+        if (!sesionActiva) {
+
+            navController.navigate(Rutas.LOGIN) {
+
+                popUpTo(navController.graph.id) {
+                    inclusive = true
+                }
+
+                launchSingleTop = true
+                restoreState = false
+            }
+
+            return false
+        }
+
+        return true
+    }
+
+    // =====================================================
+    // RECUPERAR SESIÓN AL ABRIR LA APP
+    // =====================================================
+
     LaunchedEffect(Unit) {
 
         delay(3000)
@@ -177,6 +268,7 @@ fun AppNavigation() {
         var destino = Rutas.LOGIN
 
         try {
+
             val prefs = preferencesRepository
                 .userPreferencesFlow
                 .first()
@@ -185,272 +277,421 @@ fun AppNavigation() {
 
             if (
                 prefs.recordarSesion &&
-                idGuardado != null
+                idGuardado != null &&
+                idGuardado > 0
             ) {
+
                 val usuario = usuarioRepository
                     .obtenerUsuarioPorId(idGuardado)
 
                 if (usuario != null) {
-                    usuarioIdActivo = usuario.id
+
+                    limpiarEstadoSesion()
+
+                    usuarioIdSesion.value = usuario.id
+
                     destino = Rutas.INICIO
+
                 } else {
+
                     preferencesRepository.cerrarSesion()
                 }
             }
+
         } catch (e: Exception) {
+
+            usuarioIdSesion.value = null
+
             destino = Rutas.LOGIN
         }
 
         navController.navigate(destino) {
+
             popUpTo(Rutas.SPLASH) {
                 inclusive = true
             }
+
             launchSingleTop = true
         }
     }
 
-    // TEMA OSCURO / CLARO
-    AcaMeetTheme(
-        darkTheme = preferencias?.temaOscuro ?: true,
-        dynamicColor = false
-    ) {
+    // =====================================================
+    // TEMA CLARO Y OSCURO
+    // =====================================================
 
-        NavHost(
-            navController = navController,
-            startDestination = Rutas.SPLASH
+    // Esperar a que DataStore entregue la preferencia guardada.
+    // Así no se muestra temporalmente el modo oscuro.
+    val preferenciasCargadas = preferencias
+
+    if (preferenciasCargadas != null) {
+        AcaMeetTheme(
+            darkTheme = preferenciasCargadas.temaOscuro,
+            dynamicColor = false
         ) {
 
-            // SPLASH
-            composable(Rutas.SPLASH) {
-                SplashScreen()
-            }
+            NavHost(
+                navController = navController,
+                startDestination = Rutas.SPLASH
+            ) {
 
-            // INICIAR SESIÓN
-            composable(Rutas.LOGIN) {
+                // =================================================
+                // SPLASH
+                // =================================================
 
-                LoginRoute(
-                    viewModel = usuarioViewModel,
+                composable(Rutas.SPLASH) {
 
-                    onLoginSuccess = { usuarioId ->
+                    SplashScreen()
+                }
 
-                        usuarioIdActivo = usuarioId
+                // =================================================
+                // LOGIN
+                // =================================================
 
-                        scope.launch {
-                            try {
-                                preferencesRepository
-                                    .guardarUsuarioSesion(usuarioId)
-                            } catch (e: Exception) {
-                                // La sesión activa continúa.
-                            }
-                        }
+                composable(Rutas.LOGIN) {
 
-                        navController.navigate(Rutas.INICIO) {
-                            popUpTo(Rutas.LOGIN) {
-                                inclusive = true
-                            }
-                            launchSingleTop = true
-                        }
-                    },
+                    LoginRoute(
+                        viewModel = usuarioViewModel,
 
-                    onNavigateToRegister = {
-                        navController.navigate(Rutas.REGISTER)
-                    }
-                )
-            }
+                        onLoginSuccess = { usuarioId ->
 
-            // REGISTRO
-            composable(Rutas.REGISTER) {
+                            if (usuarioId > 0) {
 
-                RegisterRoute(
-                    viewModel = usuarioViewModel,
+                                limpiarEstadoSesion()
 
-                    onRegisterSuccess = {
-                        navController.popBackStack(
-                            Rutas.LOGIN,
-                            inclusive = false
-                        )
-                    },
+                                usuarioIdSesion.value = usuarioId
 
-                    onNavigateToLogin = {
-                        navController.popBackStack(
-                            Rutas.LOGIN,
-                            inclusive = false
-                        )
-                    }
-                )
-            }
+                                scope.launch {
 
-            // INICIO
-            composable(Rutas.INICIO) {
+                                    try {
 
-                HomeScreen(
-                    eventoViewModel = eventoViewModel,
-                    categoriaViewModel = categoriaViewModel,
-                    lugarViewModel = lugarViewModel,
+                                        preferencesRepository
+                                            .guardarUsuarioSesion(usuarioId)
 
-                    onCategoriasClick = {
-                        navController.irAPantalla(
-                            Rutas.CATEGORIAS
-                        )
-                    },
+                                    } catch (e: Exception) {
 
-                    onEventosClick = {
-                        abrirListaEventos()
-                    },
-
-                    onConfiguracionClick = {
-                        navController.irAPantalla(
-                            Rutas.CONFIGURACION
-                        )
-                    },
-
-                    onCrearEventoClick = {
-                        pantallaInicialEvento = "crear"
-                        eventoIdSeleccionado = null
-
-                        navController.irAPantalla(
-                            Rutas.EVENTOS
-                        )
-                    },
-
-                    onDetalleEventoClick = { id ->
-                        pantallaInicialEvento = "detalle"
-                        eventoIdSeleccionado = id
-
-                        navController.irAPantalla(
-                            Rutas.EVENTOS
-                        )
-                    }
-                )
-            }
-
-            // CATEGORÍAS
-            composable(Rutas.CATEGORIAS) {
-
-                CategoriaScreen(
-                    viewModel = categoriaViewModel,
-
-                    onInicioClick = {
-                        navController.irAPantalla(
-                            Rutas.INICIO
-                        )
-                    },
-
-                    onEventosClick = {
-                        abrirListaEventos()
-                    },
-
-                    onConfiguracionClick = {
-                        navController.irAPantalla(
-                            Rutas.CONFIGURACION
-                        )
-                    }
-                )
-            }
-
-            // EVENTOS
-            composable(Rutas.EVENTOS) {
-
-                EventoScreen(
-                    viewModel = eventoViewModel,
-                    categoriaViewModel = categoriaViewModel,
-                    lugarViewModel = lugarViewModel,
-
-                    pantallaInicial = pantallaInicialEvento,
-                    eventoIdInicial = eventoIdSeleccionado,
-
-                    onInicioClick = {
-                        limpiarNavegacionEventos()
-                        eventoViewModel.limpiarFiltros()
-
-                        navController.irAPantalla(
-                            Rutas.INICIO
-                        )
-                    },
-
-                    onCategoriasClick = {
-                        limpiarNavegacionEventos()
-
-                        navController.irAPantalla(
-                            Rutas.CATEGORIAS
-                        )
-                    },
-
-                    onConfiguracionClick = {
-                        limpiarNavegacionEventos()
-
-                        navController.irAPantalla(
-                            Rutas.CONFIGURACION
-                        )
-                    }
-                )
-            }
-
-            // LUGARES
-            composable(Rutas.LUGARES) {
-
-                LugarScreen(
-                    viewModel = lugarViewModel,
-
-                    onInicioClick = {
-                        navController.irAPantalla(
-                            Rutas.INICIO
-                        )
-                    }
-                )
-            }
-
-            // CONFIGURACIÓN
-            composable(Rutas.CONFIGURACION) {
-
-                ConfiguracionRoute(
-                    viewModel = configuracionViewModel,
-                    usuarioId = usuarioIdActivo,
-
-                    onLogout = {
-                        scope.launch {
-                            try {
-                                preferencesRepository
-                                    .cerrarSesion()
-
-                                usuarioIdActivo = null
-                                limpiarNavegacionEventos()
-                                eventoViewModel.limpiarFiltros()
-
-                                navController.navigate(
-                                    Rutas.LOGIN
-                                ) {
-                                    popUpTo(
-                                        navController.graph.id
-                                    ) {
-                                        inclusive = true
+                                        // La sesión actual continúa activa.
                                     }
-                                    launchSingleTop = true
                                 }
 
-                            } catch (e: Exception) {
-                                // Evita cerrar sesión si
-                                // falla el guardado.
+                                navController.navigate(Rutas.INICIO) {
+
+                                    popUpTo(Rutas.LOGIN) {
+                                        inclusive = true
+                                    }
+
+                                    launchSingleTop = true
+                                    restoreState = false
+                                }
                             }
+                        },
+
+                        onNavigateToRegister = {
+
+                            navController.navigate(
+                                Rutas.REGISTER
+                            )
                         }
-                    },
+                    )
+                }
 
-                    onInicioClick = {
-                        navController.irAPantalla(
-                            Rutas.INICIO
+                // =================================================
+                // REGISTRO
+                // =================================================
+
+                composable(Rutas.REGISTER) {
+
+                    RegisterRoute(
+                        viewModel = usuarioViewModel,
+
+                        onRegisterSuccess = {
+
+                            navController.popBackStack(
+                                Rutas.LOGIN,
+                                inclusive = false
+                            )
+                        },
+
+                        onNavigateToLogin = {
+
+                            navController.popBackStack(
+                                Rutas.LOGIN,
+                                inclusive = false
+                            )
+                        }
+                    )
+                }
+
+                // =================================================
+                // INICIO
+                // =================================================
+
+                composable(Rutas.INICIO) {
+
+                    if (sesionActiva) {
+
+                        HomeScreen(
+                            eventoViewModel = eventoViewModel,
+                            categoriaViewModel = categoriaViewModel,
+                            lugarViewModel = lugarViewModel,
+
+                            onCategoriasClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.CATEGORIAS
+                                )
+                            },
+
+                            onEventosClick = {
+
+                                abrirListaEventos()
+                            },
+
+                            onConfiguracionClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.CONFIGURACION
+                                )
+                            },
+
+                            onCrearEventoClick = {
+
+                                pantallaInicialEvento = "crear"
+
+                                eventoIdSeleccionado = null
+
+                                navController.irAPantalla(
+                                    Rutas.EVENTOS
+                                )
+                            },
+
+                            onDetalleEventoClick = { id ->
+
+                                pantallaInicialEvento = "detalle"
+
+                                eventoIdSeleccionado = id
+
+                                navController.irAPantalla(
+                                    Rutas.EVENTOS
+                                )
+                            }
                         )
-                    },
 
-                    onCategoriasClick = {
-                        navController.irAPantalla(
-                            Rutas.CATEGORIAS
-                        )
-                    },
+                    } else {
 
-                    onEventosClick = {
-                        abrirListaEventos()
+                        LaunchedEffect(Unit) {
+                            comprobarSesion()
+                        }
                     }
-                )
+                }
+
+                // =================================================
+                // CATEGORÍAS Y LUGARES
+                // =================================================
+
+                composable(Rutas.CATEGORIAS) {
+
+                    if (sesionActiva) {
+
+                        CategoriaScreen(
+                            viewModel = categoriaViewModel,
+                            lugarViewModel = lugarViewModel,
+
+                            // USUARIO QUE INICIÓ SESIÓN
+                            usuarioIdActivo = usuarioIdActivo,
+
+                            onInicioClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.INICIO
+                                )
+                            },
+
+                            onEventosClick = {
+
+                                abrirListaEventos()
+                            },
+
+                            onConfiguracionClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.CONFIGURACION
+                                )
+                            }
+                        )
+
+                    } else {
+
+                        LaunchedEffect(Unit) {
+                            comprobarSesion()
+                        }
+                    }
+                }
+
+                // =================================================
+                // EVENTOS
+                // =================================================
+
+                composable(Rutas.EVENTOS) {
+
+                    if (sesionActiva) {
+
+                        EventoScreen(
+                            viewModel = eventoViewModel,
+                            categoriaViewModel = categoriaViewModel,
+                            lugarViewModel = lugarViewModel,
+
+                            // USUARIO QUE INICIÓ SESIÓN
+                            usuarioIdActivo = usuarioIdActivo,
+
+                            pantallaInicial = pantallaInicialEvento,
+
+                            eventoIdInicial = eventoIdSeleccionado,
+
+                            onInicioClick = {
+
+                                limpiarEstadoSesion()
+
+                                navController.irAPantalla(
+                                    Rutas.INICIO
+                                )
+                            },
+
+                            onCategoriasClick = {
+
+                                limpiarNavegacionEventos()
+
+                                navController.irAPantalla(
+                                    Rutas.CATEGORIAS
+                                )
+                            },
+
+                            onConfiguracionClick = {
+
+                                limpiarNavegacionEventos()
+
+                                navController.irAPantalla(
+                                    Rutas.CONFIGURACION
+                                )
+                            }
+                        )
+
+                    } else {
+
+                        LaunchedEffect(Unit) {
+                            comprobarSesion()
+                        }
+                    }
+                }
+
+                // =================================================
+                // LUGARES
+                // =================================================
+
+                composable(Rutas.LUGARES) {
+
+                    if (sesionActiva) {
+
+                        LugarScreen(
+                            viewModel = lugarViewModel,
+
+                            // USUARIO QUE INICIÓ SESIÓN
+                            usuarioIdActivo = usuarioIdActivo,
+
+                            onInicioClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.INICIO
+                                )
+                            }
+                        )
+
+                    } else {
+
+                        LaunchedEffect(Unit) {
+                            comprobarSesion()
+                        }
+                    }
+                }
+
+                // =================================================
+                // CONFIGURACIÓN
+                // =================================================
+
+                composable(Rutas.CONFIGURACION) {
+
+                    if (sesionActiva) {
+
+                        ConfiguracionRoute(
+                            viewModel = configuracionViewModel,
+
+                            usuarioId = usuarioIdActivo,
+
+                            onLogout = {
+
+                                scope.launch {
+
+                                    try {
+
+                                        preferencesRepository
+                                            .cerrarSesion()
+
+                                        // DESACTIVAR USUARIO
+                                        usuarioIdSesion.value = null
+
+                                        // LIMPIAR FILTROS Y EVENTOS
+                                        limpiarEstadoSesion()
+
+                                        // ELIMINAR HISTORIAL ANTERIOR
+                                        navController.navigate(
+                                            Rutas.LOGIN
+                                        ) {
+
+                                            popUpTo(
+                                                navController.graph.id
+                                            ) {
+                                                inclusive = true
+                                            }
+
+                                            launchSingleTop = true
+                                            restoreState = false
+                                        }
+
+                                    } catch (e: Exception) {
+
+                                        // Se conserva la sesión si
+                                        // no se pudo actualizar
+                                        // las preferencias.
+                                    }
+                                }
+                            },
+
+                            onInicioClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.INICIO
+                                )
+                            },
+
+                            onCategoriasClick = {
+
+                                navController.irAPantalla(
+                                    Rutas.CATEGORIAS
+                                )
+                            },
+
+                            onEventosClick = {
+
+                                abrirListaEventos()
+                            }
+                        )
+
+                    } else {
+
+                        LaunchedEffect(Unit) {
+                            comprobarSesion()
+                        }
+                    }
+                }
             }
         }
     }

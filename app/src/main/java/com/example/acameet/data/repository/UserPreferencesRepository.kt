@@ -44,6 +44,7 @@ class UserPreferencesRepositoryImpl(
 ) : UserPreferencesRepository {
 
     private object PreferencesKeys {
+
         val RECORDAR_SESION =
             booleanPreferencesKey("recordar_sesion")
 
@@ -60,28 +61,54 @@ class UserPreferencesRepositoryImpl(
             intPreferencesKey("usuario_id_sesion")
     }
 
+    private val temaNativo = context.getSharedPreferences(
+        "acameet_tema_nativo",
+        Context.MODE_PRIVATE
+    )
+
     override val userPreferencesFlow: Flow<UserPreferences> =
         context.dataStore.data.map { preferences ->
+
+            val temaOscuro =
+                preferences[PreferencesKeys.TEMA_OSCURO] ?: true
+
+            // Mantener sincronizada la copia del tema.
+            if (
+                !temaNativo.contains("tema_oscuro") ||
+                temaNativo.getBoolean(
+                    "tema_oscuro",
+                    true
+                ) != temaOscuro
+            ) {
+                temaNativo.edit()
+                    .putBoolean("tema_oscuro", temaOscuro)
+                    .apply()
+            }
+
             UserPreferences(
                 recordarSesion =
                     preferences[PreferencesKeys.RECORDAR_SESION]
                         ?: false,
-                temaOscuro =
-                    preferences[PreferencesKeys.TEMA_OSCURO]
-                        ?: true,
+
+                temaOscuro = temaOscuro,
+
                 notificacionesHabilitadas =
                     preferences[PreferencesKeys.NOTIFICACIONES_HABILITADAS]
                         ?: true,
+
                 idioma =
                     preferences[PreferencesKeys.IDIOMA]
                         ?: "Español",
+
                 usuarioIdGuardado =
                     preferences[PreferencesKeys.USUARIO_ID]
             )
         }
 
     override suspend fun saveRecordarSesion(value: Boolean) {
+
         context.dataStore.edit { preferences ->
+
             preferences[PreferencesKeys.RECORDAR_SESION] = value
 
             if (!value) {
@@ -91,26 +118,39 @@ class UserPreferencesRepositoryImpl(
     }
 
     override suspend fun saveTemaOscuro(value: Boolean) {
+
+        // Guardar en DataStore.
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.TEMA_OSCURO] = value
         }
+
+        // Guardar copia para el inicio nativo.
+        temaNativo.edit()
+            .putBoolean("tema_oscuro", value)
+            .apply()
     }
 
     override suspend fun saveNotificaciones(value: Boolean) {
+
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.NOTIFICACIONES_HABILITADAS] =
-                value
+
+            preferences[
+                PreferencesKeys.NOTIFICACIONES_HABILITADAS
+            ] = value
         }
     }
 
     override suspend fun saveIdioma(value: String) {
+
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.IDIOMA] = value
         }
     }
 
     override suspend fun guardarUsuarioSesion(usuarioId: Int) {
+
         context.dataStore.edit { preferences ->
+
             val recordar =
                 preferences[PreferencesKeys.RECORDAR_SESION] ?: false
 
@@ -123,6 +163,7 @@ class UserPreferencesRepositoryImpl(
     }
 
     override suspend fun cerrarSesion() {
+
         context.dataStore.edit { preferences ->
             preferences.remove(PreferencesKeys.USUARIO_ID)
         }

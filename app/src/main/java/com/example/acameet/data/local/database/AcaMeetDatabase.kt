@@ -8,15 +8,15 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-import com.example.acameet.data.local.entity.Usuario
-import com.example.acameet.data.local.entity.Categoria
-import com.example.acameet.data.local.entity.Lugar
-import com.example.acameet.data.local.entity.Evento
-
 import com.example.acameet.data.local.dao.UsuarioDao
 import com.example.acameet.data.local.dao.CategoriaDao
 import com.example.acameet.data.local.dao.LugarDao
 import com.example.acameet.data.local.dao.EventoDao
+
+import com.example.acameet.data.local.entity.Usuario
+import com.example.acameet.data.local.entity.Categoria
+import com.example.acameet.data.local.entity.Lugar
+import com.example.acameet.data.local.entity.Evento
 
 @Database(
     entities = [
@@ -25,7 +25,7 @@ import com.example.acameet.data.local.dao.EventoDao
         Lugar::class,
         Evento::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AcaMeetDatabase : RoomDatabase() {
@@ -47,25 +47,54 @@ abstract class AcaMeetDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AcaMeetDatabase? = null
 
-        // MIGRACIÓN DE LA VERSIÓN 4 A LA 5
-        // AGREGA LA COLUMNA PARA LAS IMÁGENES
-        // SIN ELIMINAR LOS DATOS EXISTENTES
-        private val MIGRATION_4_5 = object : Migration(4, 5) {
+        // MIGRACIÓN DE VERSIÓN 4 A 5
+        // AGREGA IMAGEN A LOS EVENTOS
+        val MIGRATION_4_5 = object : Migration(4, 5) {
 
             override fun migrate(
                 db: SupportSQLiteDatabase
             ) {
                 db.execSQL(
-                    "ALTER TABLE eventos " +
-                            "ADD COLUMN imagenUrl TEXT NOT NULL DEFAULT ''"
+                    """
+                    ALTER TABLE eventos
+                    ADD COLUMN imagenUrl TEXT NOT NULL DEFAULT ''
+                    """.trimIndent()
+                )
+            }
+        }
+
+        // MIGRACIÓN DE VERSIÓN 5 A 6
+        // AGREGA EL PROPIETARIO DE CADA REGISTRO
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+
+            override fun migrate(
+                db: SupportSQLiteDatabase
+            ) {
+                db.execSQL(
+                    """
+                    ALTER TABLE eventos
+                    ADD COLUMN usuarioId INTEGER NOT NULL DEFAULT 0
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    ALTER TABLE categorias
+                    ADD COLUMN usuarioId INTEGER NOT NULL DEFAULT 0
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    ALTER TABLE lugares
+                    ADD COLUMN usuarioId INTEGER NOT NULL DEFAULT 0
+                    """.trimIndent()
                 )
             }
         }
 
         // OBTENER INSTANCIA DE LA BASE DE DATOS
-        fun getDatabase(
-            context: Context
-        ): AcaMeetDatabase {
+        fun getDatabase(context: Context): AcaMeetDatabase {
 
             return INSTANCE ?: synchronized(this) {
 
@@ -74,7 +103,10 @@ abstract class AcaMeetDatabase : RoomDatabase() {
                     AcaMeetDatabase::class.java,
                     "acameet_database"
                 )
-                    .addMigrations(MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_4_5,
+                        MIGRATION_5_6
+                    )
                     .build()
 
                 INSTANCE = instance

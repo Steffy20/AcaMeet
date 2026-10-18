@@ -1,124 +1,121 @@
 
 package com.example.acameet.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-
 import com.example.acameet.data.local.entity.Categoria
+import com.example.acameet.data.local.entity.Lugar
 import com.example.acameet.ui.components.BottomNavigationBar
-import com.example.acameet.ui.viewmodel.CategoriaMensaje
 import com.example.acameet.ui.viewmodel.CategoriaUiState
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
+import com.example.acameet.ui.viewmodel.LugarViewModel
 
-private val AzulAcaMeet = Color(0xFF0798F2)
+private val AzulCL = Color(0xFF0798F2)
+
+private enum class SeccionCL {
+    CATEGORIAS,
+    LUGARES
+}
 
 @Composable
-fun CategoriaRoute(
+fun CategoriaScreen(
     viewModel: CategoriaViewModel,
+    lugarViewModel: LugarViewModel,
     onInicioClick: () -> Unit = {},
     onEventosClick: () -> Unit = {},
-    onConfiguracionClick: () -> Unit = {}
+    onConfiguracionClick: () -> Unit = {},
+    usuarioIdActivo: Int? = null
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val categoriaState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
 
-    var pantalla by remember {
-        mutableStateOf("lista")
+    val categorias = when (val estado = categoriaState) {
+        is CategoriaUiState.Success -> estado.categorias
+        else -> emptyList()
     }
 
-    var categoriaSeleccionada by remember {
+    var seccion by remember {
+        mutableStateOf(SeccionCL.CATEGORIAS)
+    }
+    var formulario by remember {
+        mutableStateOf(false)
+    }
+    var categoriaEditar by remember {
         mutableStateOf<Categoria?>(null)
     }
-
     var categoriaEliminar by remember {
         mutableStateOf<Categoria?>(null)
     }
-
+    var lugarEditar by remember {
+        mutableStateOf<Lugar?>(null)
+    }
+    var lugarEliminar by remember {
+        mutableStateOf<Lugar?>(null)
+    }
     var mensaje by remember {
         mutableStateOf<String?>(null)
     }
+    var guardandoLugar by remember {
+        mutableStateOf(false)
+    }
+    var eliminandoLugar by remember {
+        mutableStateOf(false)
+    }
 
-    LaunchedEffect(viewModel) {
-        viewModel.mensajes.collect { resultado: CategoriaMensaje ->
-            mensaje = resultado.texto
+    val procesandoCategoria =
+        (categoriaState as? CategoriaUiState.Success)?.procesando == true
 
-            if (resultado.exitoso) {
-                pantalla = "lista"
-                categoriaSeleccionada = null
-                categoriaEliminar = null
+    // Limpiar formularios al cambiar de cuenta.
+    LaunchedEffect(usuarioIdActivo) {
+        formulario = false
+        categoriaEditar = null
+        categoriaEliminar = null
+        lugarEditar = null
+        lugarEliminar = null
+        mensaje = null
+        guardandoLugar = false
+        eliminandoLugar = false
+        seccion = SeccionCL.CATEGORIAS
+    }
+
+    // Escuchar mensajes del ViewModel de categorías.
+    LaunchedEffect(viewModel, usuarioIdActivo) {
+        if (usuarioIdActivo != null && usuarioIdActivo > 0) {
+            viewModel.mensajes.collect { resultado ->
+                mensaje = resultado.texto
+                if (resultado.exitoso) {
+                    formulario = false
+                    categoriaEditar = null
+                    categoriaEliminar = null
+                }
             }
         }
     }
 
-    CategoriaContent(
-        uiState = uiState,
-        pantalla = pantalla,
-        categoriaSeleccionada = categoriaSeleccionada,
-        categoriaEliminar = categoriaEliminar,
-        mensaje = mensaje,
-        onPantallaChange = { pantalla = it },
-        onCategoriaSeleccionadaChange = {
-            categoriaSeleccionada = it
-        },
-        onCategoriaEliminarChange = {
-            categoriaEliminar = it
-        },
-        onMensajeChange = { mensaje = it },
-        onRegistrarCategoria = viewModel::registrarCategoria,
-        onActualizarCategoria = { categoria, nombre ->
-            viewModel.actualizarCategoria(categoria, nombre)
-        },
-        onEliminarCategoria = viewModel::eliminarCategoria,
-        onInicioClick = onInicioClick,
-        onEventosClick = onEventosClick,
-        onConfiguracionClick = onConfiguracionClick
-    )
-}
-
-@Composable
-fun CategoriaContent(
-    uiState: CategoriaUiState,
-    pantalla: String,
-    categoriaSeleccionada: Categoria?,
-    categoriaEliminar: Categoria?,
-    mensaje: String?,
-    onPantallaChange: (String) -> Unit,
-    onCategoriaSeleccionadaChange: (Categoria?) -> Unit,
-    onCategoriaEliminarChange: (Categoria?) -> Unit,
-    onMensajeChange: (String?) -> Unit,
-    onRegistrarCategoria: (String) -> Unit,
-    onActualizarCategoria: (Categoria, String) -> Unit,
-    onEliminarCategoria: (Categoria) -> Unit,
-    onInicioClick: () -> Unit = {},
-    onEventosClick: () -> Unit = {},
-    onConfiguracionClick: () -> Unit = {}
-) {
     val colores = MaterialTheme.colorScheme
-
-    val esOscuro =
-        colores.background == Color(0xFF020B12)
+    val esOscuro = colores.background.red < 0.5f
 
     val fondo = if (esOscuro) {
         Brush.verticalGradient(
@@ -147,75 +144,106 @@ fun CategoriaContent(
                 onEventosClick = onEventosClick,
                 onConfiguracionClick = onConfiguracionClick
             )
-        },
-        floatingActionButton = {
-            if (pantalla == "lista") {
-                FloatingActionButton(
-                    onClick = {
-                        onCategoriaSeleccionadaChange(null)
-                        onPantallaChange("crear")
-                    },
-                    containerColor = AzulAcaMeet,
-                    contentColor = Color.White
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Crear categoría"
-                    )
-                }
-            }
         }
-    ) { paddingValues ->
+    ) { padding ->
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(fondo)
-                .padding(paddingValues)
-                .padding(horizontal = 22.dp)
+                .padding(padding)
+                .padding(horizontal = 20.dp)
         ) {
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(Modifier.height(24.dp))
 
-            when (pantalla) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onInicioClick) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Volver a inicio",
+                        tint = colores.onBackground
+                    )
+                }
 
-                "lista" -> {
+                Text(
+                    text = "Categorías y lugares",
+                    color = colores.onBackground,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "Administra las categorías y lugares de tus eventos",
+                color = colores.onSurfaceVariant,
+                fontSize = 13.sp
+            )
+
+            Spacer(Modifier.height(22.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                BotonSeccionCL(
+                    texto = "Categorías",
+                    icono = Icons.Default.Category,
+                    seleccionado = seccion == SeccionCL.CATEGORIAS,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        seccion = SeccionCL.CATEGORIAS
+                        formulario = false
+                        lugarEditar = null
+                    }
+                )
+
+                BotonSeccionCL(
+                    texto = "Lugares",
+                    icono = Icons.Default.LocationOn,
+                    seleccionado = seccion == SeccionCL.LUGARES,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        seccion = SeccionCL.LUGARES
+                        formulario = false
+                        categoriaEditar = null
+                    }
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            when (seccion) {
+                SeccionCL.CATEGORIAS -> {
                     Text(
-                        text = "Categorías",
+                        text = "Categorías registradas",
                         color = colores.onBackground,
-                        fontSize = 28.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                    Text(
-                        text = "Administra las categorías de tus eventos",
-                        color = colores.onSurfaceVariant,
-                        fontSize = 14.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(25.dp))
-
-                    when (val estado = uiState) {
-
+                    when (val estado = categoriaState) {
                         is CategoriaUiState.Loading -> {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f)
+                                    .fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(
-                                    color = AzulAcaMeet
-                                )
+                                CircularProgressIndicator(color = AzulCL)
                             }
                         }
 
                         is CategoriaUiState.Error -> {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f)
+                                    .fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -226,41 +254,32 @@ fun CategoriaContent(
                         }
 
                         is CategoriaUiState.Success -> {
-                            if (estado.categorias.isEmpty()) {
-                                CategoriaVacia(
+                            if (categorias.isEmpty()) {
+                                EstadoVacioCL(
+                                    texto = "No hay categorías registradas",
                                     modifier = Modifier.weight(1f)
                                 )
                             } else {
                                 LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier.weight(1f),
                                     verticalArrangement =
-                                        Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(
-                                        bottom = 90.dp
-                                    )
+                                        Arrangement.spacedBy(10.dp),
+                                    contentPadding =
+                                        PaddingValues(bottom = 12.dp)
                                 ) {
                                     items(
-                                        items = estado.categorias,
+                                        items = categorias,
                                         key = { it.id }
                                     ) { categoria ->
-                                        TarjetaCategoria(
-                                            categoria = categoria,
-                                            onDetalleClick = {
-                                                onCategoriaSeleccionadaChange(
-                                                    categoria
-                                                )
-                                                onPantallaChange("detalle")
+                                        TarjetaRegistroCL(
+                                            nombre = categoria.nombre,
+                                            icono = Icons.Default.Category,
+                                            onEditar = {
+                                                categoriaEditar = categoria
+                                                formulario = true
                                             },
-                                            onEditarClick = {
-                                                onCategoriaSeleccionadaChange(
-                                                    categoria
-                                                )
-                                                onPantallaChange("editar")
-                                            },
-                                            onEliminarClick = {
-                                                onCategoriaEliminarChange(
-                                                    categoria
-                                                )
+                                            onEliminar = {
+                                                categoriaEliminar = categoria
                                             }
                                         )
                                     }
@@ -268,228 +287,248 @@ fun CategoriaContent(
                             }
                         }
                     }
-                }
 
-                "crear" -> {
-                    EncabezadoCategoria(
-                        titulo = "Crear categoría",
-                        onVolver = {
-                            onPantallaChange("lista")
-                        }
-                    )
+                    Spacer(Modifier.height(12.dp))
 
-                    FormularioCategoria(
-                        categoriaInicial = null,
-                        procesando = (
-                                (uiState as? CategoriaUiState.Success)
-                                    ?.procesando == true
-                                ),
-                        onGuardar = { nombre ->
-                            onRegistrarCategoria(nombre)
+                    Button(
+                        onClick = {
+                            categoriaEditar = null
+                            formulario = true
                         },
-                        onCancelar = {
-                            onPantallaChange("lista")
-                        }
-                    )
-                }
-
-                "editar" -> {
-                    val categoria = categoriaSeleccionada
-
-                    if (categoria != null) {
-                        EncabezadoCategoria(
-                            titulo = "Editar categoría",
-                            onVolver = {
-                                onPantallaChange("detalle")
-                            }
+                        enabled = !procesandoCategoria,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AzulCL
                         )
-
-                        FormularioCategoria(
-                            categoriaInicial = categoria,
-                            procesando = (
-                                    (uiState as? CategoriaUiState.Success)
-                                        ?.procesando == true
-                                    ),
-                            onGuardar = { nuevoNombre ->
-                                onActualizarCategoria(
-                                    categoria,
-                                    nuevoNombre
-                                )
-                            },
-                            onCancelar = {
-                                onPantallaChange("detalle")
-                            }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null
                         )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Agregar categoría")
                     }
                 }
 
-                "detalle" -> {
-                    val categoria = categoriaSeleccionada
+                SeccionCL.LUGARES -> {
+                    Text(
+                        text = "Lugares registrados",
+                        color = colores.onBackground,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                    if (categoria != null) {
-                        EncabezadoCategoria(
-                            titulo = "Detalle de categoría",
-                            onVolver = {
-                                onPantallaChange("lista")
-                            }
+                    Spacer(Modifier.height(12.dp))
+
+                    if (lugares.isEmpty()) {
+                        EstadoVacioCL(
+                            texto = "No hay lugares registrados",
+                            modifier = Modifier.weight(1f)
                         )
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(
-                                    rememberScrollState()
-                                ),
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
                             verticalArrangement =
-                                Arrangement.spacedBy(16.dp)
+                                Arrangement.spacedBy(10.dp),
+                            contentPadding =
+                                PaddingValues(bottom = 12.dp)
                         ) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(18.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = colores.surface
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(20.dp),
-                                    verticalArrangement =
-                                        Arrangement.spacedBy(14.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Category,
-                                        contentDescription = null,
-                                        tint = AzulAcaMeet,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-
-                                    Text(
-                                        text = categoria.nombre,
-                                        color = colores.onSurface,
-                                        fontSize = 23.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    HorizontalDivider(
-                                        color = colores.outline
-                                    )
-
-                                    Text(
-                                        text = "Categoría de evento académico",
-                                        color = colores.onSurfaceVariant,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-
-                            Button(
-                                onClick = {
-                                    onPantallaChange("editar")
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AzulAcaMeet
-                                ),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null
-                                )
-
-                                Spacer(Modifier.width(8.dp))
-
-                                Text("Editar categoría")
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    onCategoriaEliminarChange(categoria)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = colores.error
-                                )
-
-                                Spacer(Modifier.width(8.dp))
-
-                                Text(
-                                    "Eliminar categoría",
-                                    color = colores.error
+                            items(
+                                items = lugares,
+                                key = { it.id }
+                            ) { lugar ->
+                                TarjetaRegistroCL(
+                                    nombre = lugar.nombre,
+                                    icono = Icons.Default.LocationOn,
+                                    onEditar = {
+                                        lugarEditar = lugar
+                                        formulario = true
+                                    },
+                                    onEliminar = {
+                                        lugarEliminar = lugar
+                                    }
                                 )
                             }
                         }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            lugarEditar = null
+                            formulario = true
+                        },
+                        enabled = !guardandoLugar,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AzulCL
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Agregar lugar")
                     }
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
         }
     }
 
-    // CONFIRMACIÓN PARA ELIMINAR
-    categoriaEliminar?.let { categoria ->
-        AlertDialog(
-            onDismissRequest = {
-                onCategoriaEliminarChange(null)
+    // Formulario para registrar o editar categoría.
+    if (formulario && seccion == SeccionCL.CATEGORIAS) {
+        DialogoNombreCL(
+            titulo = if (categoriaEditar == null) {
+                "Nueva categoría"
+            } else {
+                "Editar categoría"
             },
-            containerColor = colores.surface,
-            titleContentColor = colores.onSurface,
-            textContentColor = colores.onSurfaceVariant,
-            title = {
-                Text(
-                    "Eliminar categoría",
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    "¿Deseas eliminar la categoría " +
-                            "\"${categoria.nombre}\"?"
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onEliminarCategoria(categoria)
-                    }
-                ) {
-                    Text(
-                        "Eliminar",
-                        color = colores.error
-                    )
+            etiqueta = "Nombre de la categoría",
+            nombreInicial = categoriaEditar?.nombre ?: "",
+            nombresExistentes = categorias
+                .filter { it.id != categoriaEditar?.id }
+                .map { it.nombre },
+            procesando = procesandoCategoria,
+            onCancelar = {
+                if (!procesandoCategoria) {
+                    formulario = false
+                    categoriaEditar = null
                 }
             },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        onCategoriaEliminarChange(null)
+            onGuardar = { nombre ->
+                if (!procesandoCategoria) {
+                    val actual = categoriaEditar
+                    if (actual == null) {
+                        viewModel.registrarCategoria(nombre)
+                    } else {
+                        viewModel.actualizarCategoria(
+                            categoria = actual,
+                            nuevoNombre = nombre
+                        )
                     }
-                ) {
-                    Text(
-                        "Cancelar",
-                        color = colores.onSurfaceVariant
-                    )
                 }
             }
         )
     }
 
-    // MENSAJES DEL VIEWMODEL
+    // Formulario para registrar o editar lugar.
+    if (formulario && seccion == SeccionCL.LUGARES) {
+        DialogoNombreCL(
+            titulo = if (lugarEditar == null) {
+                "Nuevo lugar"
+            } else {
+                "Editar lugar"
+            },
+            etiqueta = "Nombre del lugar",
+            nombreInicial = lugarEditar?.nombre ?: "",
+            nombresExistentes = lugares
+                .filter { it.id != lugarEditar?.id }
+                .map { it.nombre },
+            procesando = guardandoLugar,
+            onCancelar = {
+                if (!guardandoLugar) {
+                    formulario = false
+                    lugarEditar = null
+                }
+            },
+            onGuardar = { nombre ->
+                if (!guardandoLugar) {
+                    guardandoLugar = true
+                    val actual = lugarEditar
+                    val usuarioOperacion = usuarioIdActivo
+
+                    val callback: (Boolean, String) -> Unit =
+                        { exitoso, texto ->
+                            if (usuarioOperacion == usuarioIdActivo) {
+                                guardandoLugar = false
+                                mensaje = texto
+                                if (exitoso) {
+                                    formulario = false
+                                    lugarEditar = null
+                                }
+                            }
+                        }
+
+                    if (actual == null) {
+                        lugarViewModel.registrarLugar(
+                            Lugar(nombre = nombre),
+                            callback
+                        )
+                    } else {
+                        lugarViewModel.actualizarLugar(
+                            actual.copy(nombre = nombre),
+                            callback
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    // Confirmación de eliminación de categoría.
+    categoriaEliminar?.let { categoria ->
+        DialogoEliminarCL(
+            tipo = "categoría",
+            nombre = categoria.nombre,
+            procesando = procesandoCategoria,
+            onCancelar = {
+                if (!procesandoCategoria) {
+                    categoriaEliminar = null
+                }
+            },
+            onConfirmar = {
+                if (!procesandoCategoria) {
+                    viewModel.eliminarCategoria(categoria)
+                }
+            }
+        )
+    }
+
+    // Confirmación de eliminación de lugar.
+    lugarEliminar?.let { lugar ->
+        DialogoEliminarCL(
+            tipo = "lugar",
+            nombre = lugar.nombre,
+            procesando = eliminandoLugar,
+            onCancelar = {
+                if (!eliminandoLugar) {
+                    lugarEliminar = null
+                }
+            },
+            onConfirmar = {
+                if (!eliminandoLugar) {
+                    eliminandoLugar = true
+                    val usuarioOperacion = usuarioIdActivo
+
+                    lugarViewModel.eliminarLugar(lugar) {
+                            exitoso, texto ->
+                        if (usuarioOperacion == usuarioIdActivo) {
+                            eliminandoLugar = false
+                            mensaje = texto
+                            if (exitoso) {
+                                lugarEliminar = null
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // Mensajes de confirmación y errores.
     mensaje?.let { texto ->
         AlertDialog(
             onDismissRequest = {
-                onMensajeChange(null)
+                mensaje = null
             },
-            containerColor = colores.surface,
-            titleContentColor = colores.onSurface,
-            textContentColor = colores.onSurfaceVariant,
             title = {
-                Text(
-                    "AcaMeet",
-                    fontWeight = FontWeight.Bold
-                )
+                Text("AcaMeet")
             },
             text = {
                 Text(texto)
@@ -497,12 +536,12 @@ fun CategoriaContent(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onMensajeChange(null)
+                        mensaje = null
                     }
                 ) {
                     Text(
                         "Aceptar",
-                        color = AzulAcaMeet
+                        color = AzulCL
                     )
                 }
             }
@@ -510,216 +549,112 @@ fun CategoriaContent(
     }
 }
 
-// COMPATIBILIDAD CON APPNAVIGATION
 @Composable
-fun CategoriaScreen(
-    viewModel: CategoriaViewModel,
-    onInicioClick: () -> Unit = {},
-    onEventosClick: () -> Unit = {},
-    onConfiguracionClick: () -> Unit = {}
-) {
-    CategoriaRoute(
-        viewModel = viewModel,
-        onInicioClick = onInicioClick,
-        onEventosClick = onEventosClick,
-        onConfiguracionClick = onConfiguracionClick
-    )
-}
-
-@Composable
-private fun EncabezadoCategoria(
-    titulo: String,
-    onVolver: () -> Unit
+private fun BotonSeccionCL(
+    texto: String,
+    icono: ImageVector,
+    seleccionado: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
     val colores = MaterialTheme.colorScheme
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onVolver) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Volver",
-                tint = AzulAcaMeet
-            )
-        }
-
-        Text(
-            text = titulo,
-            color = colores.onBackground,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-
-    Spacer(modifier = Modifier.height(18.dp))
-}
-
-@Composable
-private fun FormularioCategoria(
-    categoriaInicial: Categoria?,
-    procesando: Boolean,
-    onGuardar: (String) -> Unit,
-    onCancelar: () -> Unit
-) {
-    val colores = MaterialTheme.colorScheme
-
-    var nombre by remember(categoriaInicial) {
-        mutableStateOf(categoriaInicial?.nombre ?: "")
-    }
-
-    var error by remember(categoriaInicial) {
-        mutableStateOf<String?>(null)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "Información de la categoría",
-            color = AzulAcaMeet,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = colores.surface
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Completa los datos para " +
-                            if (categoriaInicial == null) {
-                                "registrar una nueva categoría."
-                            } else {
-                                "actualizar esta categoría."
-                            },
-                    color = colores.onSurfaceVariant,
-                    fontSize = 14.sp
-                )
-
-                OutlinedTextField(
-                    value = nombre,
-                    onValueChange = {
-                        nombre = it
-                        error = null
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("Nombre de la categoría *")
-                    },
-                    placeholder = {
-                        Text("Ej. Conferencias")
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Category,
-                            contentDescription = null,
-                            tint = AzulAcaMeet
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AzulAcaMeet,
-                        focusedLabelColor = AzulAcaMeet,
-                        focusedLeadingIconColor = AzulAcaMeet,
-                        focusedTextColor = colores.onSurface,
-                        unfocusedTextColor = colores.onSurface,
-                        focusedPlaceholderColor =
-                            colores.onSurfaceVariant,
-                        unfocusedPlaceholderColor =
-                            colores.onSurfaceVariant,
-                        unfocusedBorderColor = colores.outline,
-                        unfocusedLabelColor =
-                            colores.onSurfaceVariant,
-                        cursorColor = AzulAcaMeet
-                    )
-                )
-
-                error?.let {
-                    Text(
-                        text = it,
-                        color = colores.error,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        }
-
-        Button(
-            onClick = {
-                val nombreLimpio = nombre
-                    .trim()
-                    .replace(Regex("\\s+"), " ")
-
-                if (nombreLimpio.isBlank()) {
-                    error = "Ingresa el nombre de la categoría"
-                } else {
-                    onGuardar(nombreLimpio)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !procesando,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AzulAcaMeet
-            )
-        ) {
-            if (procesando) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (seleccionado) {
+                AzulCL
             } else {
+                colores.surfaceVariant
+            },
+            contentColor = if (seleccionado) {
+                Color.White
+            } else {
+                colores.onSurfaceVariant
+            }
+        )
+    ) {
+        Icon(
+            imageVector = icono,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = texto,
+            fontSize = 12.sp,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun TarjetaRegistroCL(
+    nombre: String,
+    icono: ImageVector,
+    onEditar: () -> Unit,
+    onEliminar: () -> Unit
+) {
+    val colores = MaterialTheme.colorScheme
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = colores.surface
+        ),
+        border = BorderStroke(
+            1.dp,
+            AzulCL.copy(alpha = 0.15f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icono,
+                contentDescription = null,
+                tint = AzulCL,
+                modifier = Modifier.size(27.dp)
+            )
+
+            Spacer(Modifier.width(12.dp))
+
+            Text(
+                text = nombre,
+                modifier = Modifier.weight(1f),
+                color = colores.onSurface,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            IconButton(onClick = onEditar) {
                 Icon(
-                    imageVector = if (categoriaInicial == null) {
-                        Icons.Default.Add
-                    } else {
-                        Icons.Default.Edit
-                    },
-                    contentDescription = null
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                Text(
-                    if (categoriaInicial == null) {
-                        "Guardar categoría"
-                    } else {
-                        "Guardar cambios"
-                    }
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Editar",
+                    tint = AzulCL
                 )
             }
-        }
 
-        OutlinedButton(
-            onClick = onCancelar,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !procesando,
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Text(
-                "Cancelar",
-                color = colores.onSurfaceVariant
-            )
+            IconButton(onClick = onEliminar) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Eliminar",
+                    tint = colores.error
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CategoriaVacia(
+private fun EstadoVacioCL(
+    texto: String,
     modifier: Modifier = Modifier
 ) {
     val colores = MaterialTheme.colorScheme
@@ -728,136 +663,162 @@ private fun CategoriaVacia(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Surface(
-                modifier = Modifier.size(75.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = colores.surface
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Category,
-                        contentDescription = null,
-                        tint = AzulAcaMeet,
-                        modifier = Modifier.size(38.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(18.dp))
-
-            Text(
-                text = "No hay categorías registradas",
-                color = colores.onBackground,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(Modifier.height(7.dp))
-
-            Text(
-                text = "Presiona + para crear tu primera categoría",
-                color = colores.onSurfaceVariant,
-                fontSize = 13.sp
-            )
-        }
+        Text(
+            text = texto,
+            color = colores.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-private fun TarjetaCategoria(
-    categoria: Categoria,
-    onDetalleClick: () -> Unit,
-    onEditarClick: () -> Unit,
-    onEliminarClick: () -> Unit
+private fun DialogoNombreCL(
+    titulo: String,
+    etiqueta: String,
+    nombreInicial: String,
+    nombresExistentes: List<String>,
+    procesando: Boolean = false,
+    onCancelar: () -> Unit,
+    onGuardar: (String) -> Unit
 ) {
-    val colores = MaterialTheme.colorScheme
+    var nombre by remember(nombreInicial, titulo) {
+        mutableStateOf(nombreInicial)
+    }
 
-    val esOscuro =
-        colores.background == Color(0xFF020B12)
+    var error by remember(nombreInicial, titulo) {
+        mutableStateOf<String?>(null)
+    }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onDetalleClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = colores.surface
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(50.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = if (esOscuro) {
-                    Color(0xFF102E42)
-                } else {
-                    Color(0xFFE2F0F9)
-                }
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Category,
-                        contentDescription = null,
-                        tint = AzulAcaMeet,
-                        modifier = Modifier.size(27.dp)
+    AlertDialog(
+        onDismissRequest = {
+            if (!procesando) {
+                onCancelar()
+            }
+        },
+        title = {
+            Text(titulo)
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = {
+                        nombre = it
+                        error = null
+                    },
+                    label = {
+                        Text(etiqueta)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !procesando
+                )
+
+                error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
                     )
                 }
             }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !procesando,
+                onClick = {
+                    val limpio = nombre
+                        .trim()
+                        .replace(Regex("\\s+"), " ")
 
-            Spacer(Modifier.width(14.dp))
+                    when {
+                        limpio.isBlank() -> {
+                            error = "El nombre es obligatorio"
+                        }
 
-            Column(
-                modifier = Modifier.weight(1f)
+                        nombresExistentes.any {
+                            it.trim().equals(
+                                limpio,
+                                ignoreCase = true
+                            )
+                        } -> {
+                            error = "Ya existe un registro con ese nombre"
+                        }
+
+                        else -> {
+                            onGuardar(limpio)
+                        }
+                    }
+                }
             ) {
                 Text(
-                    text = categoria.nombre,
-                    color = colores.onSurface,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(Modifier.height(4.dp))
-
-                Text(
-                    text = "Categoría de evento",
-                    color = colores.onSurfaceVariant,
-                    fontSize = 13.sp
+                    text = if (procesando) {
+                        "Guardando..."
+                    } else {
+                        "Guardar"
+                    },
+                    color = AzulCL
                 )
             }
-
-            IconButton(onClick = onEditarClick) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Editar categoría",
-                    tint = AzulAcaMeet
-                )
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !procesando,
+                onClick = onCancelar
+            ) {
+                Text("Cancelar")
             }
-
-            IconButton(onClick = onEliminarClick) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Eliminar categoría",
-                    tint = colores.error
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Ver detalle",
-                tint = AzulAcaMeet
-            )
         }
-    }
+    )
+}
+
+@Composable
+private fun DialogoEliminarCL(
+    tipo: String,
+    nombre: String,
+    procesando: Boolean = false,
+    onCancelar: () -> Unit,
+    onConfirmar: () -> Unit
+) {
+    val colores = MaterialTheme.colorScheme
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!procesando) {
+                onCancelar()
+            }
+        },
+        title = {
+            Text("Eliminar $tipo")
+        },
+        text = {
+            Text(
+                "¿Deseas eliminar \"$nombre\"? " +
+                        "Esta acción no se puede deshacer."
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !procesando,
+                onClick = onConfirmar
+            ) {
+                Text(
+                    text = if (procesando) {
+                        "Eliminando..."
+                    } else {
+                        "Eliminar"
+                    },
+                    color = colores.error
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !procesando,
+                onClick = onCancelar
+            ) {
+                Text("Cancelar")
+            }
+        }
+    )
 }

@@ -17,10 +17,10 @@ interface EventoRepository {
         usuarioId: Int
     ): Evento?
 
-    // REGISTRAR UN EVENTO
+    // REGISTRAR UN EVENTO Y DEVOLVER SU ID
     suspend fun insertarEvento(
         evento: Evento
-    )
+    ): Long
 
     // ACTUALIZAR UN EVENTO DEL USUARIO
     suspend fun actualizarEvento(

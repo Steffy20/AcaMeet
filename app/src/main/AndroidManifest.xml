@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- PERMISO PARA INTERNET -->
+    <uses-permission
+        android:name="android.permission.INTERNET" />
+
+    <!-- PERMISO PARA MOSTRAR NOTIFICACIONES -->
+    <!-- Android 13 o superior -->
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- PERMISO PARA PROGRAMAR ALARMAS EXACTAS -->
+    <!-- Android 12 o superior -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -12,22 +26,31 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AcaMeet">
+
+        <!-- ACTIVIDAD PRINCIPAL -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.AcaMeet"
             android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
+            <intent-filter>
+                <action
+                    android:name="android.intent.action.MAIN" />
+
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
+
+        <!-- RECEPTOR DE NOTIFICACIONES DE EVENTOS -->
         <receiver
             android:name=".util.NotificacionReceiver"
             android:enabled="true"
             android:exported="false" />
+
     </application>
 
 </manifest>

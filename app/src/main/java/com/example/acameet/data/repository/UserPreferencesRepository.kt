@@ -2,11 +2,13 @@
 package com.example.acameet.data.repository
 
 import android.content.Context
+
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -14,13 +16,22 @@ private val Context.dataStore by preferencesDataStore(
     name = "user_settings"
 )
 
+// =====================================================
+// PREFERENCIAS DEL USUARIO
+// =====================================================
+
 data class UserPreferences(
     val recordarSesion: Boolean = false,
     val temaOscuro: Boolean = true,
     val notificacionesHabilitadas: Boolean = true,
     val idioma: String = "Español",
-    val usuarioIdGuardado: Int? = null
+    val usuarioIdGuardado: Int? = null,
+    val usuarioIdActivo: Int? = null
 )
+
+// =====================================================
+// INTERFAZ DEL REPOSITORIO
+// =====================================================
 
 interface UserPreferencesRepository {
 
@@ -38,6 +49,10 @@ interface UserPreferencesRepository {
 
     suspend fun cerrarSesion()
 }
+
+// =====================================================
+// IMPLEMENTACIÓN DEL REPOSITORIO
+// =====================================================
 
 class UserPreferencesRepositoryImpl(
     private val context: Context
@@ -57,14 +72,27 @@ class UserPreferencesRepositoryImpl(
         val IDIOMA =
             stringPreferencesKey("idioma_app")
 
+        // ID utilizado para recuperar la sesión.
         val USUARIO_ID =
             intPreferencesKey("usuario_id_sesion")
+
+        // ID de la cuenta que inició sesión.
+        val USUARIO_ID_ACTIVO =
+            intPreferencesKey("usuario_id_activo")
     }
+
+    // =====================================================
+    // COPIA DEL TEMA PARA EL INICIO NATIVO
+    // =====================================================
 
     private val temaNativo = context.getSharedPreferences(
         "acameet_tema_nativo",
         Context.MODE_PRIVATE
     )
+
+    // =====================================================
+    // LEER PREFERENCIAS
+    // =====================================================
 
     override val userPreferencesFlow: Flow<UserPreferences> =
         context.dataStore.data.map { preferences ->
@@ -72,7 +100,6 @@ class UserPreferencesRepositoryImpl(
             val temaOscuro =
                 preferences[PreferencesKeys.TEMA_OSCURO] ?: true
 
-            // Mantener sincronizada la copia del tema.
             if (
                 !temaNativo.contains("tema_oscuro") ||
                 temaNativo.getBoolean(
@@ -80,12 +107,17 @@ class UserPreferencesRepositoryImpl(
                     true
                 ) != temaOscuro
             ) {
+
                 temaNativo.edit()
-                    .putBoolean("tema_oscuro", temaOscuro)
+                    .putBoolean(
+                        "tema_oscuro",
+                        temaOscuro
+                    )
                     .apply()
             }
 
             UserPreferences(
+
                 recordarSesion =
                     preferences[PreferencesKeys.RECORDAR_SESION]
                         ?: false,
@@ -93,44 +125,89 @@ class UserPreferencesRepositoryImpl(
                 temaOscuro = temaOscuro,
 
                 notificacionesHabilitadas =
-                    preferences[PreferencesKeys.NOTIFICACIONES_HABILITADAS]
-                        ?: true,
+                    preferences[
+                        PreferencesKeys.NOTIFICACIONES_HABILITADAS
+                    ] ?: true,
 
                 idioma =
                     preferences[PreferencesKeys.IDIOMA]
                         ?: "Español",
 
                 usuarioIdGuardado =
-                    preferences[PreferencesKeys.USUARIO_ID]
+                    preferences[PreferencesKeys.USUARIO_ID],
+
+                usuarioIdActivo =
+                    preferences[PreferencesKeys.USUARIO_ID_ACTIVO]
             )
         }
 
-    override suspend fun saveRecordarSesion(value: Boolean) {
+    // =====================================================
+    // RECORDAR SESIÓN
+    // =====================================================
+
+    override suspend fun saveRecordarSesion(
+        value: Boolean
+    ) {
 
         context.dataStore.edit { preferences ->
 
-            preferences[PreferencesKeys.RECORDAR_SESION] = value
+            preferences[PreferencesKeys.RECORDAR_SESION] =
+                value
 
-            if (!value) {
-                preferences.remove(PreferencesKeys.USUARIO_ID)
+            if (value) {
+
+                val usuarioActivo =
+                    preferences[PreferencesKeys.USUARIO_ID_ACTIVO]
+
+                if (
+                    usuarioActivo != null &&
+                    usuarioActivo > 0
+                ) {
+
+                    preferences[PreferencesKeys.USUARIO_ID] =
+                        usuarioActivo
+                }
+
+            } else {
+
+                // No se elimina la sesión activa.
+                // Solo se desactiva el inicio automático.
+                preferences.remove(
+                    PreferencesKeys.USUARIO_ID
+                )
             }
         }
     }
 
-    override suspend fun saveTemaOscuro(value: Boolean) {
+    // =====================================================
+    // TEMA CLARO Y OSCURO
+    // =====================================================
 
-        // Guardar en DataStore.
+    override suspend fun saveTemaOscuro(
+        value: Boolean
+    ) {
+
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.TEMA_OSCURO] = value
+
+            preferences[PreferencesKeys.TEMA_OSCURO] =
+                value
         }
 
-        // Guardar copia para el inicio nativo.
         temaNativo.edit()
-            .putBoolean("tema_oscuro", value)
+            .putBoolean(
+                "tema_oscuro",
+                value
+            )
             .apply()
     }
 
-    override suspend fun saveNotificaciones(value: Boolean) {
+    // =====================================================
+    // ACTIVAR O DESACTIVAR NOTIFICACIONES
+    // =====================================================
+
+    override suspend fun saveNotificaciones(
+        value: Boolean
+    ) {
 
         context.dataStore.edit { preferences ->
 
@@ -140,32 +217,74 @@ class UserPreferencesRepositoryImpl(
         }
     }
 
-    override suspend fun saveIdioma(value: String) {
+    // =====================================================
+    // IDIOMA
+    // =====================================================
+
+    override suspend fun saveIdioma(
+        value: String
+    ) {
 
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.IDIOMA] = value
+
+            preferences[PreferencesKeys.IDIOMA] =
+                value
         }
     }
 
-    override suspend fun guardarUsuarioSesion(usuarioId: Int) {
+    // =====================================================
+    // GUARDAR USUARIO QUE INICIÓ SESIÓN
+    // =====================================================
+
+    override suspend fun guardarUsuarioSesion(
+        usuarioId: Int
+    ) {
+
+        require(usuarioId > 0) {
+            "El ID del usuario debe ser válido"
+        }
 
         context.dataStore.edit { preferences ->
 
+            // Guardar siempre el usuario activo.
+            preferences[PreferencesKeys.USUARIO_ID_ACTIVO] =
+                usuarioId
+
             val recordar =
-                preferences[PreferencesKeys.RECORDAR_SESION] ?: false
+                preferences[PreferencesKeys.RECORDAR_SESION]
+                    ?: false
 
             if (recordar) {
-                preferences[PreferencesKeys.USUARIO_ID] = usuarioId
+
+                preferences[PreferencesKeys.USUARIO_ID] =
+                    usuarioId
+
             } else {
-                preferences.remove(PreferencesKeys.USUARIO_ID)
+
+                preferences.remove(
+                    PreferencesKeys.USUARIO_ID
+                )
             }
         }
     }
 
+    // =====================================================
+    // CERRAR SESIÓN
+    // =====================================================
+
     override suspend fun cerrarSesion() {
 
         context.dataStore.edit { preferences ->
-            preferences.remove(PreferencesKeys.USUARIO_ID)
+
+            // Eliminar usuario activo.
+            preferences.remove(
+                PreferencesKeys.USUARIO_ID_ACTIVO
+            )
+
+            // Eliminar inicio automático.
+            preferences.remove(
+                PreferencesKeys.USUARIO_ID
+            )
         }
     }
 }

@@ -59,13 +59,13 @@ class EventoRepositoryImpl(
     // REGISTRAR EVENTO
     override suspend fun insertarEvento(
         evento: Evento
-    ) {
+    ): Long {
         validarReferencias(
             evento = evento,
             usuarioId = evento.usuarioId
         )
 
-        eventoDao.insertarEvento(evento)
+        return eventoDao.insertarEvento(evento)
     }
 
     // ACTUALIZAR EVENTO

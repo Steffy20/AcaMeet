@@ -1,10 +1,21 @@
 
 package com.example.acameet
 
+import android.Manifest
+import android.app.AlarmManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -31,11 +42,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+import androidx.core.content.ContextCompat
+
 import com.example.acameet.navigation.AppNavigation
 
 class MainActivity : ComponentActivity() {
 
+    // =====================================================
+    // SOLICITAR PERMISO DE NOTIFICACIONES
+    // =====================================================
+
+    private val solicitarPermisoNotificaciones =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { permisoConcedido ->
+
+            if (permisoConcedido) {
+                verificarPermisoAlarmasExactas()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+
+        // =====================================================
+        // RECUPERAR TEMA NATIVO
+        // =====================================================
 
         val preferencias = getSharedPreferences(
             "acameet_tema_nativo",
@@ -59,11 +91,96 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
 
+        // =====================================================
+        // MOSTRAR APLICACIÓN
+        // =====================================================
+
         setContent {
             AppNavigation()
         }
+
+        // =====================================================
+        // VERIFICAR PERMISOS
+        // =====================================================
+
+        verificarPermisoNotificaciones()
+    }
+
+    // =====================================================
+    // VERIFICAR PERMISO DE NOTIFICACIONES
+    // =====================================================
+
+    private fun verificarPermisoNotificaciones() {
+
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.TIRAMISU
+        ) {
+
+            val permiso = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+
+            if (permiso != PackageManager.PERMISSION_GRANTED) {
+
+                solicitarPermisoNotificaciones.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
+
+            } else {
+
+                verificarPermisoAlarmasExactas()
+            }
+
+        } else {
+
+            verificarPermisoAlarmasExactas()
+        }
+    }
+
+    // =====================================================
+    // VERIFICAR ACCESO A ALARMAS EXACTAS
+    // =====================================================
+
+    private fun verificarPermisoAlarmasExactas() {
+
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.S
+        ) {
+
+            val alarmManager = getSystemService(
+                Context.ALARM_SERVICE
+            ) as AlarmManager
+
+            if (!alarmManager.canScheduleExactAlarms()) {
+
+                try {
+
+                    val intent = Intent(
+                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                    ).apply {
+
+                        data = Uri.parse(
+                            "package:$packageName"
+                        )
+                    }
+
+                    startActivity(intent)
+
+                } catch (_: Exception) {
+                    // Algunos dispositivos no disponen de
+                    // una pantalla compatible para este permiso.
+                }
+            }
+        }
     }
 }
+
+// =====================================================
+// PANTALLA SPLASH DE ACAMEET
+// =====================================================
 
 @Composable
 fun SplashScreen() {
@@ -74,7 +191,9 @@ fun SplashScreen() {
 
     val progresoAnimado by animateFloatAsState(
         targetValue = progreso,
-        animationSpec = tween(durationMillis = 3000),
+        animationSpec = tween(
+            durationMillis = 3000
+        ),
         label = "progresoSplash"
     )
 
@@ -115,7 +234,10 @@ fun SplashScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
 
+            // =================================================
             // LOGO ACAMEET
+            // =================================================
+
             Image(
                 painter = painterResource(
                     id = R.drawable.acameet_logo
@@ -129,7 +251,10 @@ fun SplashScreen() {
                 modifier = Modifier.height((-45).dp)
             )
 
+            // =================================================
             // NOMBRE ACAMEET
+            // =================================================
+
             Text(
                 text = buildAnnotatedString {
 
@@ -158,7 +283,10 @@ fun SplashScreen() {
                 modifier = Modifier.height(8.dp)
             )
 
+            // =================================================
             // DESCRIPCIÓN
+            // =================================================
+
             Text(
                 text = "Gestión de eventos académicos",
                 color = colores.onSurfaceVariant,
@@ -169,9 +297,14 @@ fun SplashScreen() {
                 modifier = Modifier.height(55.dp)
             )
 
-            // BARRA DE CARGA
+            // =================================================
+            // BARRA DE PROGRESO
+            // =================================================
+
             LinearProgressIndicator(
-                progress = { progresoAnimado },
+                progress = {
+                    progresoAnimado
+                },
                 modifier = Modifier
                     .width(140.dp)
                     .height(5.dp),

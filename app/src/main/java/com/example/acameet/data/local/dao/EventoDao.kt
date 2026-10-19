@@ -35,11 +35,11 @@ interface EventoDao {
         usuarioId: Int
     ): Evento?
 
-    // REGISTRAR UN EVENTO
+    // REGISTRAR EVENTO Y DEVOLVER SU ID
     @Insert
     suspend fun insertarEvento(
         evento: Evento
-    )
+    ): Long
 
     // ACTUALIZAR SOLO EVENTOS DEL USUARIO
     @Query(

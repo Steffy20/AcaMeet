@@ -13,8 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-
 import androidx.compose.material3.*
+
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 
@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 
+import com.example.acameet.data.local.dao.NotificacionDao
+import com.example.acameet.data.local.database.AcaMeetDatabase
 import com.example.acameet.data.local.entity.Categoria
 import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.local.entity.Lugar
@@ -41,6 +44,7 @@ import com.example.acameet.ui.EventoViewModel
 import com.example.acameet.ui.ImagenEventoUtils
 
 import com.example.acameet.ui.components.BottomNavigationBar
+import com.example.acameet.ui.components.CampanaNotificaciones
 
 import com.example.acameet.ui.viewmodel.CategoriaUiState
 import com.example.acameet.ui.viewmodel.CategoriaViewModel
@@ -49,12 +53,16 @@ import com.example.acameet.ui.viewmodel.LugarViewModel
 private val AzulInicio = Color(0xFF0798F2)
 private val FondoImagenInicio = Color(0xFF08283B)
 
-// PANTALLA INICIO
+// =====================================================
+// PANTALLA DE INICIO
+// =====================================================
+
 @Composable
 fun HomeScreen(
     eventoViewModel: EventoViewModel,
     categoriaViewModel: CategoriaViewModel,
     lugarViewModel: LugarViewModel,
+    usuarioIdActivo: Int? = null,
     onCategoriasClick: () -> Unit = {},
     onEventosClick: () -> Unit = {},
     onConfiguracionClick: () -> Unit = {},
@@ -65,6 +73,7 @@ fun HomeScreen(
         eventoViewModel = eventoViewModel,
         categoriaViewModel = categoriaViewModel,
         lugarViewModel = lugarViewModel,
+        usuarioIdActivo = usuarioIdActivo,
         onCategoriasClick = onCategoriasClick,
         onEventosClick = onEventosClick,
         onConfiguracionClick = onConfiguracionClick,
@@ -73,18 +82,30 @@ fun HomeScreen(
     )
 }
 
-// CONEXIÓN CON VIEWMODELS
+// =====================================================
+// CONEXIÓN CON VIEWMODELS Y ROOM
+// =====================================================
+
 @Composable
 fun HomeRoute(
     eventoViewModel: EventoViewModel,
     categoriaViewModel: CategoriaViewModel,
     lugarViewModel: LugarViewModel,
+    usuarioIdActivo: Int? = null,
     onCategoriasClick: () -> Unit = {},
     onEventosClick: () -> Unit = {},
     onConfiguracionClick: () -> Unit = {},
     onCrearEventoClick: () -> Unit = {},
     onDetalleEventoClick: (Int) -> Unit = {}
 ) {
+
+    val context = LocalContext.current
+
+    val notificacionDao = remember(context) {
+        AcaMeetDatabase.getDatabase(
+            context.applicationContext
+        ).notificacionDao()
+    }
 
     val eventoState by eventoViewModel.uiState
         .collectAsStateWithLifecycle()
@@ -115,7 +136,10 @@ fun HomeRoute(
         mutableStateOf<Int?>(null)
     }
 
+    // =====================================================
     // FILTRAR EVENTOS POR TEXTO Y CATEGORÍA
+    // =====================================================
+
     val eventosFiltrados = eventos.filter { evento ->
 
         val nombreLugar = lugares.find {
@@ -166,6 +190,8 @@ fun HomeRoute(
         onCategoriaChange = {
             categoriaSeleccionada = it
         },
+        usuarioIdActivo = usuarioIdActivo,
+        notificacionDao = notificacionDao,
         onCategoriasClick = onCategoriasClick,
         onEventosClick = onEventosClick,
         onConfiguracionClick = onConfiguracionClick,
@@ -174,7 +200,10 @@ fun HomeRoute(
     )
 }
 
-// DISEÑO DE LA PANTALLA
+// =====================================================
+// DISEÑO DE LA PANTALLA DE INICIO
+// =====================================================
+
 @Composable
 private fun HomeContent(
     eventos: List<Evento>,
@@ -186,6 +215,8 @@ private fun HomeContent(
     onBusquedaChange: (String) -> Unit,
     categoriaSeleccionada: Int?,
     onCategoriaChange: (Int?) -> Unit,
+    usuarioIdActivo: Int?,
+    notificacionDao: NotificacionDao,
     onCategoriasClick: () -> Unit,
     onEventosClick: () -> Unit,
     onConfiguracionClick: () -> Unit,
@@ -252,13 +283,35 @@ private fun HomeContent(
 
             Spacer(Modifier.height(24.dp))
 
-            // TÍTULO PRINCIPAL
-            Text(
-                text = "Eventos académicos",
-                color = colores.onBackground,
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Bold
-            )
+            // =================================================
+            // TÍTULO PRINCIPAL Y CAMPANA
+            // =================================================
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+
+                Text(
+                    text = "Eventos académicos",
+                    color = colores.onBackground,
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (
+                    usuarioIdActivo != null &&
+                    usuarioIdActivo > 0
+                ) {
+                    CampanaNotificaciones(
+                        usuarioId = usuarioIdActivo,
+                        notificacionDao = notificacionDao,
+                        onDetalleEventoClick = onDetalleEventoClick
+                    )
+                }
+            }
 
             Spacer(Modifier.height(3.dp))
 
@@ -271,13 +324,13 @@ private fun HomeContent(
 
             Spacer(Modifier.height(16.dp))
 
-            // BARRA DE BÚSQUEDA COMPLETA
-            // SIN BOTÓN DE FILTROS A LA DERECHA
+            // =================================================
+            // BARRA DE BÚSQUEDA
+            // =================================================
+
             OutlinedTextField(
                 value = busqueda,
-
                 onValueChange = onBusquedaChange,
-
                 modifier = Modifier.fillMaxWidth(),
 
                 placeholder = {
@@ -319,7 +372,10 @@ private fun HomeContent(
 
             Spacer(Modifier.height(14.dp))
 
+            // =================================================
             // CATEGORÍAS HORIZONTALES
+            // =================================================
+
             FiltroCategoriaHorizontalInicio(
                 categorias = categorias,
                 seleccion = categoriaSeleccionada,
@@ -328,12 +384,13 @@ private fun HomeContent(
 
             Spacer(Modifier.height(22.dp))
 
-            // SECCIÓN DE EVENTOS
+            // =================================================
+            // SECCIÓN MIS EVENTOS
+            // =================================================
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-
                 verticalAlignment = Alignment.CenterVertically,
-
                 horizontalArrangement =
                     Arrangement.SpaceBetween
             ) {
@@ -357,7 +414,10 @@ private fun HomeContent(
 
             Spacer(Modifier.height(10.dp))
 
+            // =================================================
             // LISTADO DE EVENTOS
+            // =================================================
+
             when {
 
                 // CARGANDO EVENTOS
@@ -367,9 +427,9 @@ private fun HomeContent(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
-
                         contentAlignment = Alignment.Center
                     ) {
+
                         CircularProgressIndicator(
                             color = AzulInicio
                         )
@@ -383,9 +443,9 @@ private fun HomeContent(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
-
                         contentAlignment = Alignment.Center
                     ) {
+
                         Text(
                             text = error,
                             color = colores.error
@@ -499,7 +559,10 @@ private fun HomeContent(
     }
 }
 
+// =====================================================
 // FILTROS HORIZONTALES
+// =====================================================
+
 @Composable
 private fun FiltroCategoriaHorizontalInicio(
     categorias: List<Categoria>,
@@ -533,7 +596,6 @@ private fun FiltroCategoriaHorizontalInicio(
 
             ChipCategoriaInicio(
                 nombre = categoria.nombre,
-
                 seleccionado = (
                         seleccion == categoria.id
                         ),
@@ -546,7 +608,10 @@ private fun FiltroCategoriaHorizontalInicio(
     }
 }
 
+// =====================================================
 // BOTÓN DE CATEGORÍA
+// =====================================================
+
 @Composable
 private fun ChipCategoriaInicio(
     nombre: String,
@@ -598,7 +663,10 @@ private fun ChipCategoriaInicio(
     }
 }
 
+// =====================================================
 // TARJETA DE EVENTO
+// =====================================================
+
 @Composable
 private fun TarjetaEventoInicio(
     evento: Evento,
@@ -758,7 +826,10 @@ private fun TarjetaEventoInicio(
     }
 }
 
+// =====================================================
 // FECHA, HORA Y LUGAR
+// =====================================================
+
 @Composable
 private fun DatoEventoInicio(
     icono: androidx.compose.ui.graphics.vector.ImageVector,

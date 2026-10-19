@@ -5,17 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.repository.EventoRepository
+import com.example.acameet.util.RecordatorioEventoScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-// =====================================================
-// ESTADOS DE LA PANTALLA DE EVENTOS
-// =====================================================
-
 sealed class EventoUiState {
-
     data object Loading : EventoUiState()
 
     data class Success(
@@ -27,59 +23,42 @@ sealed class EventoUiState {
     ) : EventoUiState()
 }
 
-// =====================================================
-// MENSAJES DE RESULTADO
-// =====================================================
-
 data class EventoMensaje(
     val exitoso: Boolean,
     val texto: String
 )
 
-// =====================================================
-// VIEWMODEL DE EVENTOS
-// =====================================================
-
 class EventoViewModel(
     private val repository: EventoRepository,
-    private val usuarioIdActivo: StateFlow<Int?>
+    private val usuarioIdActivo: StateFlow<Int?>,
+    private val recordatorioScheduler:
+    RecordatorioEventoScheduler? = null
 ) : ViewModel() {
 
-    // BÚSQUEDA DE EVENTOS
     private val _busqueda = MutableStateFlow("")
+    val busqueda: StateFlow<String> =
+        _busqueda.asStateFlow()
 
-    // Exponer la búsqueda a EventoScreen
-    val busqueda: StateFlow<String> = _busqueda.asStateFlow()
-
-    // FILTRO DE CATEGORÍAS
-    private val _categoriaFiltro = MutableStateFlow<Int?>(null)
+    private val _categoriaFiltro =
+        MutableStateFlow<Int?>(null)
 
     val categoriaFiltro: StateFlow<Int?> =
         _categoriaFiltro.asStateFlow()
 
-    // MENSAJES
     private val _mensajes =
         Channel<EventoMensaje>(Channel.BUFFERED)
 
     val mensajes = _mensajes.receiveAsFlow()
 
-    // =====================================================
-    // OBTENER EVENTOS DEL USUARIO ACTIVO
-    // =====================================================
-
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<EventoUiState> =
         usuarioIdActivo
             .flatMapLatest { usuarioId ->
-
                 if (usuarioId == null || usuarioId <= 0) {
-
                     flowOf<EventoUiState>(
                         EventoUiState.Success(emptyList())
                     )
-
                 } else {
-
                     combine(
                         repository.obtenerEventos(usuarioId),
                         _busqueda,
@@ -87,7 +66,6 @@ class EventoViewModel(
                     ) { eventos, textoBusqueda, categoriaId ->
 
                         val filtrados = eventos.filter { evento ->
-
                             val coincideBusqueda =
                                 textoBusqueda.isBlank() ||
                                         evento.nombre.contains(
@@ -113,7 +91,6 @@ class EventoViewModel(
                 }
             }
             .catch { error ->
-
                 if (error is CancellationException) {
                     throw error
                 }
@@ -130,45 +107,27 @@ class EventoViewModel(
                 initialValue = EventoUiState.Loading
             )
 
-    // =====================================================
-    // ACTUALIZAR BÚSQUEDA
-    // =====================================================
-
     fun actualizarBusqueda(texto: String) {
         _busqueda.value = texto
     }
 
-    // =====================================================
-    // FILTRAR POR CATEGORÍA
-    // =====================================================
-
     fun filtrarPorCategoria(categoriaId: Int?) {
         _categoriaFiltro.value = categoriaId
     }
-
-    // =====================================================
-    // LIMPIAR FILTROS
-    // =====================================================
 
     fun limpiarFiltros() {
         _busqueda.value = ""
         _categoriaFiltro.value = null
     }
 
-    // =====================================================
-    // OBTENER EVENTO POR ID
-    // =====================================================
-
-    suspend fun obtenerEventoParaPantalla(id: Int): Evento? {
-
+    suspend fun obtenerEventoParaPantalla(
+        id: Int
+    ): Evento? {
         val usuarioId = usuarioIdActivo.value ?: return null
 
-        if (usuarioId <= 0) {
-            return null
-        }
+        if (usuarioId <= 0) return null
 
         return try {
-
             val evento = repository.obtenerEventoPorId(
                 id = id,
                 usuarioId = usuarioId
@@ -179,21 +138,14 @@ class EventoViewModel(
             } else {
                 null
             }
-
         } catch (error: CancellationException) {
-
             throw error
-
         } catch (_: Exception) {
-
             null
         }
     }
 
-    // =====================================================
     // REGISTRAR EVENTO
-    // =====================================================
-
     fun registrarEvento(
         nombre: String,
         descripcion: String,
@@ -203,21 +155,15 @@ class EventoViewModel(
         lugarId: Int,
         imagenUrl: String = ""
     ) {
-
         val usuarioId = usuarioIdActivo.value
 
         if (usuarioId == null || usuarioId <= 0) {
-            enviarMensaje(
-                false,
-                "Debes iniciar sesión"
-            )
+            enviarMensaje(false, "Debes iniciar sesión")
             return
         }
 
         viewModelScope.launch {
-
             try {
-
                 require(nombre.isNotBlank()) {
                     "El nombre del evento es obligatorio"
                 }
@@ -236,20 +182,30 @@ class EventoViewModel(
 
                 comprobarSesion(usuarioId)
 
-                repository.insertarEvento(
-                    Evento(
-                        nombre = nombre.trim(),
-                        descripcion = descripcion.trim(),
-                        fecha = fecha,
-                        hora = hora,
-                        categoriaId = categoriaId,
-                        lugarId = lugarId,
-                        imagenUrl = imagenUrl,
-                        usuarioId = usuarioId
-                    )
+                val evento = Evento(
+                    nombre = nombre.trim(),
+                    descripcion = descripcion.trim(),
+                    fecha = fecha,
+                    hora = hora,
+                    categoriaId = categoriaId,
+                    lugarId = lugarId,
+                    imagenUrl = imagenUrl,
+                    usuarioId = usuarioId
                 )
 
+                val nuevoId = repository.insertarEvento(evento)
+
                 comprobarSesion(usuarioId)
+
+                // Programar recordatorio para la hora del evento.
+                // El programador debe conectarse en AppNavigation.
+                try {
+                    recordatorioScheduler?.programar(
+                        evento.copy(id = nuevoId.toInt())
+                    )
+                } catch (_: Exception) {
+                    // El evento ya fue guardado correctamente.
+                }
 
                 enviarMensaje(
                     true,
@@ -257,26 +213,19 @@ class EventoViewModel(
                 )
 
             } catch (error: CancellationException) {
-
                 throw error
-
             } catch (error: Exception) {
-
                 if (usuarioIdActivo.value == usuarioId) {
                     enviarMensaje(
                         false,
-                        error.message
-                            ?: "Error al registrar evento"
+                        error.message ?: "Error al registrar evento"
                     )
                 }
             }
         }
     }
 
-    // =====================================================
     // ACTUALIZAR EVENTO
-    // =====================================================
-
     fun actualizarEvento(
         evento: Evento,
         nombre: String,
@@ -287,21 +236,15 @@ class EventoViewModel(
         lugarId: Int,
         imagenUrl: String = evento.imagenUrl
     ) {
-
         val usuarioId = usuarioIdActivo.value
 
         if (usuarioId == null || usuarioId <= 0) {
-            enviarMensaje(
-                false,
-                "Debes iniciar sesión"
-            )
+            enviarMensaje(false, "Debes iniciar sesión")
             return
         }
 
         viewModelScope.launch {
-
             try {
-
                 require(evento.usuarioId == usuarioId) {
                     "Este evento no pertenece a tu cuenta"
                 }
@@ -342,14 +285,17 @@ class EventoViewModel(
                 comprobarSesion(usuarioId)
 
                 if (filas > 0) {
+                    try {
+                        recordatorioScheduler?.programar(actualizado)
+                    } catch (_: Exception) {
+                        // La actualización en Room ya se realizó.
+                    }
 
                     enviarMensaje(
                         true,
                         "Evento actualizado correctamente"
                     )
-
                 } else {
-
                     enviarMensaje(
                         false,
                         "El evento no existe o no pertenece a tu cuenta"
@@ -357,42 +303,29 @@ class EventoViewModel(
                 }
 
             } catch (error: CancellationException) {
-
                 throw error
-
             } catch (error: Exception) {
-
                 if (usuarioIdActivo.value == usuarioId) {
                     enviarMensaje(
                         false,
-                        error.message
-                            ?: "Error al actualizar evento"
+                        error.message ?: "Error al actualizar evento"
                     )
                 }
             }
         }
     }
 
-    // =====================================================
     // ELIMINAR EVENTO
-    // =====================================================
-
     fun eliminarEvento(evento: Evento) {
-
         val usuarioId = usuarioIdActivo.value
 
         if (usuarioId == null || usuarioId <= 0) {
-            enviarMensaje(
-                false,
-                "Debes iniciar sesión"
-            )
+            enviarMensaje(false, "Debes iniciar sesión")
             return
         }
 
         viewModelScope.launch {
-
             try {
-
                 require(evento.usuarioId == usuarioId) {
                     "Este evento no pertenece a tu cuenta"
                 }
@@ -407,14 +340,17 @@ class EventoViewModel(
                 comprobarSesion(usuarioId)
 
                 if (filas > 0) {
+                    try {
+                        recordatorioScheduler?.cancelar(evento.id)
+                    } catch (_: Exception) {
+                        // El evento ya fue eliminado de Room.
+                    }
 
                     enviarMensaje(
                         true,
                         "Evento eliminado correctamente"
                     )
-
                 } else {
-
                     enviarMensaje(
                         false,
                         "El evento no existe o no pertenece a tu cuenta"
@@ -422,44 +358,29 @@ class EventoViewModel(
                 }
 
             } catch (error: CancellationException) {
-
                 throw error
-
             } catch (error: Exception) {
-
                 if (usuarioIdActivo.value == usuarioId) {
                     enviarMensaje(
                         false,
-                        error.message
-                            ?: "Error al eliminar evento"
+                        error.message ?: "Error al eliminar evento"
                     )
                 }
             }
         }
     }
 
-    // =====================================================
-    // COMPROBAR SESIÓN
-    // =====================================================
-
     private fun comprobarSesion(usuarioId: Int) {
-
         check(usuarioIdActivo.value == usuarioId) {
             "La sesión ha cambiado. Intenta nuevamente."
         }
     }
 
-    // =====================================================
-    // ENVIAR MENSAJES
-    // =====================================================
-
     private fun enviarMensaje(
         exitoso: Boolean,
         texto: String
     ) {
-
         viewModelScope.launch {
-
             _mensajes.send(
                 EventoMensaje(
                     exitoso = exitoso,

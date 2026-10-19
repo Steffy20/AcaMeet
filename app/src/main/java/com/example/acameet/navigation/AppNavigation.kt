@@ -26,6 +26,7 @@ import com.example.acameet.data.repository.CategoriaRepositoryImpl
 import com.example.acameet.data.repository.LugarRepositoryImpl
 import com.example.acameet.data.repository.EventoRepositoryImpl
 import com.example.acameet.data.repository.UserPreferencesRepositoryImpl
+import com.example.acameet.data.repository.NotificacionRepositoryImpl
 
 import com.example.acameet.ui.viewmodel.UsuarioViewModel
 import com.example.acameet.ui.viewmodel.UsuarioViewModelFactory
@@ -35,6 +36,8 @@ import com.example.acameet.ui.viewmodel.LugarViewModel
 import com.example.acameet.ui.viewmodel.LugarViewModelFactory
 import com.example.acameet.ui.viewmodel.ConfiguracionViewModel
 import com.example.acameet.ui.viewmodel.ConfiguracionViewModelFactory
+import com.example.acameet.ui.viewmodel.NotificacionViewModel
+import com.example.acameet.ui.viewmodel.NotificacionViewModelFactory
 
 import com.example.acameet.ui.EventoViewModel
 import com.example.acameet.ui.EventoViewModelFactory
@@ -155,6 +158,16 @@ fun AppNavigation(
     }
 
     // =================================================
+    // REPOSITORIO DE NOTIFICACIONES
+    // =================================================
+
+    val notificacionRepository = remember(database) {
+        NotificacionRepositoryImpl(
+            database.notificacionDao()
+        )
+    }
+
+    // =================================================
     // PROGRAMADOR DE RECORDATORIOS
     // =================================================
 
@@ -211,6 +224,12 @@ fun AppNavigation(
         factory = ConfiguracionViewModelFactory(
             preferencesRepository,
             usuarioRepository
+        )
+    )
+
+    val notificacionViewModel: NotificacionViewModel = viewModel(
+        factory = NotificacionViewModelFactory(
+            notificacionRepository
         )
     )
 
@@ -580,6 +599,7 @@ fun AppNavigation(
                             eventoViewModel = eventoViewModel,
                             categoriaViewModel = categoriaViewModel,
                             lugarViewModel = lugarViewModel,
+                            notificacionViewModel = notificacionViewModel,
 
                             usuarioIdActivo = usuarioIdActivo,
 

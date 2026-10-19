@@ -24,23 +24,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 import coil3.compose.AsyncImage
 
-import com.example.acameet.data.local.database.AcaMeetDatabase
 import com.example.acameet.data.local.entity.Categoria
 import com.example.acameet.data.local.entity.Evento
 import com.example.acameet.data.local.entity.Lugar
 import com.example.acameet.data.local.entity.Notificacion
-import com.example.acameet.data.repository.NotificacionRepositoryImpl
 
 import com.example.acameet.ui.EventoUiState
 import com.example.acameet.ui.EventoViewModel
@@ -54,7 +50,6 @@ import com.example.acameet.ui.viewmodel.CategoriaViewModel
 import com.example.acameet.ui.viewmodel.LugarViewModel
 import com.example.acameet.ui.viewmodel.NotificacionUiState
 import com.example.acameet.ui.viewmodel.NotificacionViewModel
-import com.example.acameet.ui.viewmodel.NotificacionViewModelFactory
 
 private val AzulInicio = Color(0xFF0798F2)
 private val FondoImagenInicio = Color(0xFF08283B)
@@ -68,6 +63,7 @@ fun HomeScreen(
     eventoViewModel: EventoViewModel,
     categoriaViewModel: CategoriaViewModel,
     lugarViewModel: LugarViewModel,
+    notificacionViewModel: NotificacionViewModel,
     usuarioIdActivo: Int? = null,
     onCategoriasClick: () -> Unit = {},
     onEventosClick: () -> Unit = {},
@@ -79,6 +75,7 @@ fun HomeScreen(
         eventoViewModel = eventoViewModel,
         categoriaViewModel = categoriaViewModel,
         lugarViewModel = lugarViewModel,
+        notificacionViewModel = notificacionViewModel,
         usuarioIdActivo = usuarioIdActivo,
         onCategoriasClick = onCategoriasClick,
         onEventosClick = onEventosClick,
@@ -97,6 +94,7 @@ fun HomeRoute(
     eventoViewModel: EventoViewModel,
     categoriaViewModel: CategoriaViewModel,
     lugarViewModel: LugarViewModel,
+    notificacionViewModel: NotificacionViewModel,
     usuarioIdActivo: Int? = null,
     onCategoriasClick: () -> Unit = {},
     onEventosClick: () -> Unit = {},
@@ -104,28 +102,6 @@ fun HomeRoute(
     onCrearEventoClick: () -> Unit = {},
     onDetalleEventoClick: (Int) -> Unit = {}
 ) {
-    val context = LocalContext.current
-
-    // REPOSITORIO DE NOTIFICACIONES
-    val notificacionRepository = remember(context) {
-        NotificacionRepositoryImpl(
-            AcaMeetDatabase.getDatabase(
-                context.applicationContext
-            ).notificacionDao()
-        )
-    }
-
-    // VIEWMODEL DE NOTIFICACIONES
-    val notificacionFactory = remember(notificacionRepository) {
-        NotificacionViewModelFactory(
-            notificacionRepository
-        )
-    }
-
-    val notificacionViewModel: NotificacionViewModel = viewModel(
-        factory = notificacionFactory
-    )
-
     // ACTUALIZAR EL USUARIO ACTIVO
     LaunchedEffect(
         notificacionViewModel,

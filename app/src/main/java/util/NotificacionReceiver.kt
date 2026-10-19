@@ -20,6 +20,7 @@ import com.example.acameet.data.local.database.AcaMeetDatabase
 import com.example.acameet.data.local.entity.Notificacion
 import com.example.acameet.data.repository.UserPreferencesRepositoryImpl
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +42,10 @@ class NotificacionReceiver : BroadcastReceiver() {
             "AcaMeetNotificacion"
     }
 
+    // =====================================================
+    // RECIBIR EL RECORDATORIO PROGRAMADO
+    // =====================================================
+
     override fun onReceive(
         context: Context,
         intent: Intent
@@ -61,6 +66,10 @@ class NotificacionReceiver : BroadcastReceiver() {
                     intent = intent
                 )
 
+            } catch (e: CancellationException) {
+
+                throw e
+
             } catch (e: Exception) {
 
                 Log.e(
@@ -76,14 +85,18 @@ class NotificacionReceiver : BroadcastReceiver() {
         }
     }
 
+    // =====================================================
+    // PROCESAR NOTIFICACIÓN
+    // =====================================================
+
     private suspend fun procesarNotificacion(
         context: Context,
         intent: Intent
     ) {
 
-        // =====================================================
-        // 1. OBTENER DATOS DEL EVENTO
-        // =====================================================
+        // =================================================
+        // 1. OBTENER IDENTIFICADORES
+        // =================================================
 
         val eventoId = intent.getIntExtra(
             "EVENTO_ID",
@@ -95,109 +108,116 @@ class NotificacionReceiver : BroadcastReceiver() {
             0
         )
 
-        val titulo = intent.getStringExtra(
-            "TITULO_EVENTO"
-        ) ?: "Recordatorio de evento"
-
-        val descripcion = intent.getStringExtra(
-            "DESCRIPCION_EVENTO"
-        ) ?: "Tienes un evento agendado en AcaMeet."
-
-        if (
-            eventoId <= 0 ||
-            usuarioIdEvento <= 0
-        ) {
+        if (eventoId <= 0 || usuarioIdEvento <= 0) {
 
             Log.w(
                 TAG,
-                "Recordatorio sin evento o usuario válido"
+                "Recordatorio con identificadores inválidos"
             )
 
             return
         }
 
-        // =====================================================
-        // 2. OBTENER PREFERENCIAS DEL USUARIO
-        // =====================================================
+        // =================================================
+        // 2. CONSULTAR PREFERENCIAS
+        // =================================================
 
-        val repository = UserPreferencesRepositoryImpl(
-            context
-        )
+        val preferenciasRepository =
+            UserPreferencesRepositoryImpl(context)
 
         val preferencias = withTimeoutOrNull(5000L) {
 
-            repository.userPreferencesFlow.first()
+            preferenciasRepository.userPreferencesFlow.first()
 
         } ?: run {
 
             Log.w(
                 TAG,
-                "No se pudieron obtener las preferencias"
+                "No se pudieron consultar las preferencias"
             )
 
             return
         }
 
-        // =====================================================
+        // =================================================
         // 3. VERIFICAR NOTIFICACIONES HABILITADAS
-        // =====================================================
+        // =================================================
 
         if (!preferencias.notificacionesHabilitadas) {
 
             Log.d(
                 TAG,
-                "Notificaciones desactivadas"
+                "El usuario desactivó las notificaciones"
             )
 
             return
         }
 
-        // =====================================================
-        // 4. VERIFICAR USUARIO CON SESIÓN ACTIVA
-        // =====================================================
+        // =================================================
+        // 4. VERIFICAR SESIÓN ACTIVA
+        // =================================================
 
         val usuarioIdActivo = preferencias.usuarioIdActivo
 
         if (
             usuarioIdActivo == null ||
-            usuarioIdActivo <= 0
+            usuarioIdActivo <= 0 ||
+            usuarioIdActivo != usuarioIdEvento
         ) {
-
-            Log.d(
-                TAG,
-                "No existe una sesión activa. " +
-                        "Se omite el recordatorio del evento $eventoId"
-            )
-
-            return
-        }
-
-        // =====================================================
-        // 5. COMPROBAR QUE EL EVENTO PERTENECE
-        //    AL USUARIO QUE INICIÓ SESIÓN
-        // =====================================================
-
-        if (usuarioIdActivo != usuarioIdEvento) {
 
             Log.w(
                 TAG,
-                "Recordatorio omitido: " +
-                        "el evento $eventoId pertenece al usuario " +
-                        "$usuarioIdEvento, pero la sesión activa " +
-                        "corresponde al usuario $usuarioIdActivo"
+                "Recordatorio omitido por cambio o cierre de sesión"
             )
 
             return
         }
 
-        Log.d(
-            TAG,
-            "Usuario validado correctamente: $usuarioIdActivo"
-        )
+        // =================================================
+        // 5. COMPROBAR QUE EL EVENTO EXISTE
+        // =================================================
 
-        // =====================================================
-        // 6. VERIFICAR PERMISO DE ANDROID
-        // =====================================================
+        val database = AcaMeetDatabase.getDatabase(context)
+
+        val evento = database.eventoDao()
+            .obtenerEventoPorId(
+                id = eventoId,
+                usuarioId = usuarioIdActivo
+            )
+
+        if (evento == null) {
+
+            Log.w(
+                TAG,
+                "El evento $eventoId ya no existe o no pertenece al usuario"
+            )
+
+            return
+        }
+
+        // =================================================
+        // 6. OBTENER DATOS ACTUALES DEL EVENTO
+        // =================================================
+
+        val titulo = evento.nombre
+
+        val descripcion = evento.descripcion
+            .ifBlank {
+                "Tienes un evento agendado en AcaMeet."
+            }
+
+        // =================================================
+        // 7. OBTENER ADMINISTRADOR DE NOTIFICACIONES
+        // =================================================
+
+        val notificationManager =
+            context.getSystemService(
+                Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
+
+        // =================================================
+        // 8. VERIFICAR PERMISOS
+        // =================================================
 
         if (
             Build.VERSION.SDK_INT >=
@@ -223,59 +243,19 @@ class NotificacionReceiver : BroadcastReceiver() {
             }
         }
 
-        // =====================================================
-        // 7. GUARDAR NOTIFICACIÓN EN ROOM
-        // =====================================================
+        if (!notificationManager.areNotificationsEnabled()) {
 
-        val database = AcaMeetDatabase.getDatabase(
-            context
-        )
-
-        val notificacion = Notificacion(
-            usuarioId = usuarioIdEvento,
-            eventoId = eventoId,
-            titulo = titulo,
-            descripcion = descripcion,
-            fechaCreacion = System.currentTimeMillis(),
-            leida = false
-        )
-
-        try {
-
-            database.notificacionDao()
-                .insertarNotificacion(
-                    notificacion
-                )
-
-            Log.d(
+            Log.w(
                 TAG,
-                "Notificación guardada en Room: evento $eventoId"
+                "Las notificaciones están deshabilitadas en Android"
             )
 
-        } catch (e: Exception) {
-
-            // Si Room presenta un error, intentamos
-            // mostrar igualmente la notificación.
-
-            Log.e(
-                TAG,
-                "No se pudo guardar la notificación",
-                e
-            )
+            return
         }
 
-        // =====================================================
-        // 8. OBTENER ADMINISTRADOR DE NOTIFICACIONES
-        // =====================================================
-
-        val notificationManager =
-            context.getSystemService(
-                Context.NOTIFICATION_SERVICE
-            ) as NotificationManager
-
-        // =====================================================
+        // =================================================
         // 9. CREAR CANAL DE NOTIFICACIONES
-        // =====================================================
+        // =================================================
 
         if (
             Build.VERSION.SDK_INT >=
@@ -289,7 +269,7 @@ class NotificacionReceiver : BroadcastReceiver() {
             ).apply {
 
                 description =
-                    "Notificaciones para eventos agendados en AcaMeet"
+                    "Recordatorios de eventos académicos de AcaMeet"
 
                 enableVibration(true)
             }
@@ -297,11 +277,29 @@ class NotificacionReceiver : BroadcastReceiver() {
             notificationManager.createNotificationChannel(
                 channel
             )
+
+            val canalActual =
+                notificationManager.getNotificationChannel(
+                    CHANNEL_ID
+                )
+
+            if (
+                canalActual?.importance ==
+                NotificationManager.IMPORTANCE_NONE
+            ) {
+
+                Log.w(
+                    TAG,
+                    "El canal de recordatorios está deshabilitado"
+                )
+
+                return
+            }
         }
 
-        // =====================================================
-        // 10. ABRIR ACAMEET AL TOCAR LA NOTIFICACIÓN
-        // =====================================================
+        // =================================================
+        // 10. PREPARAR APERTURA DE LA APLICACIÓN
+        // =================================================
 
         val abrirAplicacion = Intent(
             context,
@@ -331,9 +329,9 @@ class NotificacionReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_IMMUTABLE
         )
 
-        // =====================================================
-        // 11. CONSTRUIR NOTIFICACIÓN
-        // =====================================================
+        // =================================================
+        // 11. CONSTRUIR NOTIFICACIÓN DE ANDROID
+        // =================================================
 
         val notification = NotificationCompat.Builder(
             context,
@@ -359,17 +357,51 @@ class NotificacionReceiver : BroadcastReceiver() {
                 NotificationCompat.CATEGORY_REMINDER
             )
             .setAutoCancel(true)
-            .setContentIntent(
-                pendingIntent
-            )
+            .setContentIntent(pendingIntent)
             .setVisibility(
                 NotificationCompat.VISIBILITY_PRIVATE
             )
             .build()
 
-        // =====================================================
-        // 12. MOSTRAR NOTIFICACIÓN EN EL TELÉFONO
-        // =====================================================
+        // =================================================
+        // 12. GUARDAR EN EL HISTORIAL DE ROOM
+        // =================================================
+
+        val notificacion = Notificacion(
+            usuarioId = usuarioIdEvento,
+            eventoId = eventoId,
+            titulo = titulo,
+            descripcion = descripcion,
+            fechaCreacion = System.currentTimeMillis(),
+            leida = false
+        )
+
+        try {
+
+            database.notificacionDao()
+                .insertarNotificacion(notificacion)
+
+            Log.d(
+                TAG,
+                "Recordatorio guardado en Room: $eventoId"
+            )
+
+        } catch (e: CancellationException) {
+
+            throw e
+
+        } catch (e: Exception) {
+
+            Log.e(
+                TAG,
+                "No se pudo guardar el recordatorio en Room",
+                e
+            )
+        }
+
+        // =================================================
+        // 13. MOSTRAR NOTIFICACIÓN EN ANDROID
+        // =================================================
 
         notificationManager.notify(
             eventoId,
@@ -378,8 +410,7 @@ class NotificacionReceiver : BroadcastReceiver() {
 
         Log.d(
             TAG,
-            "Notificación mostrada: evento $eventoId " +
-                    "para el usuario $usuarioIdActivo"
+            "Recordatorio mostrado para evento $eventoId"
         )
     }
 }

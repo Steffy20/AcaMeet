@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,25 +51,29 @@ import com.example.acameet.navigation.AppNavigation
 class MainActivity : ComponentActivity() {
 
     // =====================================================
+    // EVENTO RECIBIDO DESDE UNA NOTIFICACIÓN
+    // =====================================================
+
+    private var eventoPendiente by mutableStateOf<Pair<Int, Int>?>(null)
+
+    // =====================================================
     // SOLICITAR PERMISO DE NOTIFICACIONES
     // =====================================================
 
     private val solicitarPermisoNotificaciones =
         registerForActivityResult(
             ActivityResultContracts.RequestPermission()
-        ) { permisoConcedido ->
-
-            if (permisoConcedido) {
-                verificarPermisoAlarmasExactas()
-            }
+        ) {
+            verificarPermisoAlarmasExactas()
         }
+
+    // =====================================================
+    // INICIAR APLICACIÓN
+    // =====================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
 
-        // =====================================================
         // RECUPERAR TEMA NATIVO
-        // =====================================================
-
         val preferencias = getSharedPreferences(
             "acameet_tema_nativo",
             MODE_PRIVATE
@@ -91,19 +96,66 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
 
-        // =====================================================
-        // MOSTRAR APLICACIÓN
-        // =====================================================
+        // RECUPERAR EVENTO ENVIADO POR LA NOTIFICACIÓN
+        procesarIntent(intent)
 
+        // MOSTRAR APLICACIÓN
         setContent {
-            AppNavigation()
+
+            AppNavigation(
+                eventoDesdeNotificacion = eventoPendiente,
+                onNotificacionProcesada = {
+                    eventoPendiente = null
+                }
+            )
         }
 
-        // =====================================================
         // VERIFICAR PERMISOS
-        // =====================================================
-
         verificarPermisoNotificaciones()
+    }
+
+    // =====================================================
+    // RECIBIR NOTIFICACIÓN CON LA APP ABIERTA
+    // =====================================================
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+
+        setIntent(intent)
+
+        procesarIntent(intent)
+    }
+
+    // =====================================================
+    // LEER IDENTIFICADORES DE LA NOTIFICACIÓN
+    // =====================================================
+
+    private fun procesarIntent(intent: Intent?) {
+
+        if (intent == null) return
+
+        val eventoId = intent.getIntExtra(
+            "EVENTO_ID",
+            0
+        )
+
+        val usuarioId = intent.getIntExtra(
+            "USUARIO_ID",
+            0
+        )
+
+        if (eventoId > 0 && usuarioId > 0) {
+
+            eventoPendiente = Pair(
+                eventoId,
+                usuarioId
+            )
+        }
+
+        // EVITAR PROCESAR EL MISMO EVENTO
+        // SI LA ACTIVIDAD SE VUELVE A CREAR
+        intent.removeExtra("EVENTO_ID")
+        intent.removeExtra("USUARIO_ID")
     }
 
     // =====================================================
@@ -122,7 +174,9 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.POST_NOTIFICATIONS
             )
 
-            if (permiso != PackageManager.PERMISSION_GRANTED) {
+            if (
+                permiso != PackageManager.PERMISSION_GRANTED
+            ) {
 
                 solicitarPermisoNotificaciones.launch(
                     Manifest.permission.POST_NOTIFICATIONS
@@ -170,8 +224,9 @@ class MainActivity : ComponentActivity() {
                     startActivity(intent)
 
                 } catch (_: Exception) {
-                    // Algunos dispositivos no disponen de
-                    // una pantalla compatible para este permiso.
+
+                    // ALGUNOS DISPOSITIVOS NO DISPONEN
+                    // DE UNA PANTALLA PARA ESTE PERMISO
                 }
             }
         }
@@ -234,10 +289,7 @@ fun SplashScreen() {
             modifier = Modifier.fillMaxSize()
         ) {
 
-            // =================================================
             // LOGO ACAMEET
-            // =================================================
-
             Image(
                 painter = painterResource(
                     id = R.drawable.acameet_logo
@@ -251,10 +303,7 @@ fun SplashScreen() {
                 modifier = Modifier.height((-45).dp)
             )
 
-            // =================================================
             // NOMBRE ACAMEET
-            // =================================================
-
             Text(
                 text = buildAnnotatedString {
 
@@ -283,10 +332,7 @@ fun SplashScreen() {
                 modifier = Modifier.height(8.dp)
             )
 
-            // =================================================
             // DESCRIPCIÓN
-            // =================================================
-
             Text(
                 text = "Gestión de eventos académicos",
                 color = colores.onSurfaceVariant,
@@ -297,10 +343,7 @@ fun SplashScreen() {
                 modifier = Modifier.height(55.dp)
             )
 
-            // =================================================
             // BARRA DE PROGRESO
-            // =================================================
-
             LinearProgressIndicator(
                 progress = {
                     progresoAnimado

@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface EventoDao {
 
+    // =====================================================
     // OBTENER EVENTOS DEL USUARIO ACTIVO
+    // =====================================================
+
     @Query(
         """
         SELECT * FROM eventos
@@ -22,11 +25,15 @@ interface EventoDao {
         usuarioId: Int
     ): Flow<List<Evento>>
 
+    // =====================================================
     // OBTENER UN EVENTO POR ID Y USUARIO
+    // =====================================================
+
     @Query(
         """
         SELECT * FROM eventos
-        WHERE id = :id AND usuarioId = :usuarioId
+        WHERE id = :id
+          AND usuarioId = :usuarioId
         LIMIT 1
         """
     )
@@ -35,13 +42,19 @@ interface EventoDao {
         usuarioId: Int
     ): Evento?
 
+    // =====================================================
     // REGISTRAR EVENTO Y DEVOLVER SU ID
+    // =====================================================
+
     @Insert
     suspend fun insertarEvento(
         evento: Evento
     ): Long
 
+    // =====================================================
     // ACTUALIZAR SOLO EVENTOS DEL USUARIO
+    // =====================================================
+
     @Query(
         """
         UPDATE eventos
@@ -68,11 +81,15 @@ interface EventoDao {
         imagenUrl: String
     ): Int
 
+    // =====================================================
     // ELIMINAR SOLO EVENTOS DEL USUARIO
+    // =====================================================
+
     @Query(
         """
         DELETE FROM eventos
-        WHERE id = :id AND usuarioId = :usuarioId
+        WHERE id = :id
+          AND usuarioId = :usuarioId
         """
     )
     suspend fun eliminarEvento(
@@ -80,7 +97,10 @@ interface EventoDao {
         usuarioId: Int
     ): Int
 
+    // =====================================================
     // BUSCAR EVENTOS DEL USUARIO
+    // =====================================================
+
     @Query(
         """
         SELECT * FROM eventos
@@ -97,7 +117,10 @@ interface EventoDao {
         usuarioId: Int
     ): Flow<List<Evento>>
 
+    // =====================================================
     // FILTRAR EVENTOS POR CATEGORÍA Y USUARIO
+    // =====================================================
+
     @Query(
         """
         SELECT * FROM eventos

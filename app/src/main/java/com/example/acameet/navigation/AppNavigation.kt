@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -37,6 +38,7 @@ import com.example.acameet.ui.viewmodel.ConfiguracionViewModelFactory
 
 import com.example.acameet.ui.EventoViewModel
 import com.example.acameet.ui.EventoViewModelFactory
+
 import com.example.acameet.ui.theme.AcaMeetTheme
 import com.example.acameet.ui.screens.*
 import com.example.acameet.util.RecordatorioEventoScheduler
@@ -57,7 +59,7 @@ private object Rutas {
 }
 
 // =====================================================
-// NAVEGACIÓN ENTRE PANTALLAS
+// FUNCIÓN PARA NAVEGAR ENTRE PANTALLAS
 // =====================================================
 
 private fun NavHostController.irAPantalla(
@@ -74,19 +76,22 @@ private fun NavHostController.irAPantalla(
 }
 
 // =====================================================
-// NAVEGACIÓN PRINCIPAL DE ACAMEET
+// NAVEGACIÓN PRINCIPAL
 // =====================================================
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    eventoDesdeNotificacion: Pair<Int, Int>? = null,
+    onNotificacionProcesada: () -> Unit = {}
+) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val navController = rememberNavController()
 
-    // =====================================================
+    // =================================================
     // SESIÓN DEL USUARIO
-    // =====================================================
+    // =================================================
 
     val usuarioIdSesion = remember {
         MutableStateFlow<Int?>(null)
@@ -99,9 +104,13 @@ fun AppNavigation() {
         usuarioIdActivo != null &&
                 usuarioIdActivo!! > 0
 
-    // =====================================================
+    var inicioCompletado by remember {
+        mutableStateOf(false)
+    }
+
+    // =================================================
     // BASE DE DATOS ROOM
-    // =====================================================
+    // =================================================
 
     val database = remember(context) {
         AcaMeetDatabase.getDatabase(
@@ -109,9 +118,9 @@ fun AppNavigation() {
         )
     }
 
-    // =====================================================
+    // =================================================
     // REPOSITORIOS
-    // =====================================================
+    // =================================================
 
     val usuarioRepository = remember(database) {
         UsuarioRepositoryImpl(
@@ -145,9 +154,9 @@ fun AppNavigation() {
         )
     }
 
-    // =====================================================
+    // =================================================
     // PROGRAMADOR DE RECORDATORIOS
-    // =====================================================
+    // =================================================
 
     val recordatorioScheduler = remember(context) {
         RecordatorioEventoScheduler(
@@ -155,9 +164,9 @@ fun AppNavigation() {
         )
     }
 
-    // =====================================================
-    // ADMINISTRADOR DE NOTIFICACIONES
-    // =====================================================
+    // =================================================
+    // NOTIFICACIONES DE ANDROID
+    // =================================================
 
     val notificationManager = remember(context) {
         context.applicationContext.getSystemService(
@@ -165,9 +174,10 @@ fun AppNavigation() {
         ) as NotificationManager
     }
 
-    // =====================================================
-    // VIEWMODELS
-    // =====================================================
+    // =================================================
+    // VIEWMODELS CON FACTORY
+    // SIN APPCONTAINER
+    // =================================================
 
     val usuarioViewModel: UsuarioViewModel = viewModel(
         factory = UsuarioViewModelFactory(
@@ -197,17 +207,16 @@ fun AppNavigation() {
         )
     )
 
-    val configuracionViewModel: ConfiguracionViewModel =
-        viewModel(
-            factory = ConfiguracionViewModelFactory(
-                preferencesRepository,
-                usuarioRepository
-            )
+    val configuracionViewModel: ConfiguracionViewModel = viewModel(
+        factory = ConfiguracionViewModelFactory(
+            preferencesRepository,
+            usuarioRepository
         )
+    )
 
-    // =====================================================
+    // =================================================
     // PREFERENCIAS DEL USUARIO
-    // =====================================================
+    // =================================================
 
     val preferencias by preferencesRepository
         .userPreferencesFlow
@@ -215,9 +224,9 @@ fun AppNavigation() {
             initialValue = null
         )
 
-    // =====================================================
+    // =================================================
     // ESTADO DE NAVEGACIÓN DE EVENTOS
-    // =====================================================
+    // =================================================
 
     var pantallaInicialEvento by remember {
         mutableStateOf("lista")
@@ -245,9 +254,9 @@ fun AppNavigation() {
         )
     }
 
-    // =====================================================
-    // PROTEGER RUTAS PRIVADAS
-    // =====================================================
+    // =================================================
+    // PROTECCIÓN DE RUTAS PRIVADAS
+    // =================================================
 
     fun comprobarSesion(): Boolean {
 
@@ -269,9 +278,9 @@ fun AppNavigation() {
         return true
     }
 
-    // =====================================================
-    // RECUPERAR SESIÓN AL ABRIR LA APP
-    // =====================================================
+    // =================================================
+    // RECUPERAR SESIÓN AL ABRIR LA APLICACIÓN
+    // =================================================
 
     LaunchedEffect(Unit) {
 
@@ -298,9 +307,6 @@ fun AppNavigation() {
 
                 if (usuario != null) {
 
-                    // Restaurar la sesión activa en DataStore
-                    // antes de permitir la navegación.
-
                     preferencesRepository
                         .guardarUsuarioSesion(usuario.id)
 
@@ -312,7 +318,6 @@ fun AppNavigation() {
 
                 } else {
 
-                    // El usuario guardado ya no existe.
                     preferencesRepository.cerrarSesion()
 
                     usuarioIdSesion.value = null
@@ -322,16 +327,16 @@ fun AppNavigation() {
 
             } else {
 
-                // No hay inicio automático.
-                // Eliminar cualquier sesión activa anterior
-                // para evitar notificaciones de otra cuenta.
-
                 preferencesRepository.cerrarSesion()
 
                 usuarioIdSesion.value = null
 
                 notificationManager.cancelAll()
             }
+
+        } catch (e: CancellationException) {
+
+            throw e
 
         } catch (e: Exception) {
 
@@ -342,12 +347,8 @@ fun AppNavigation() {
             )
 
             usuarioIdSesion.value = null
-            destino = Rutas.LOGIN
 
-            // Si falla la lectura o escritura de DataStore,
-            // no se considera segura la sesión.
-            // El receptor también bloqueará las notificaciones
-            // cuando no pueda validar al usuario.
+            destino = Rutas.LOGIN
         }
 
         navController.navigate(destino) {
@@ -358,11 +359,103 @@ fun AppNavigation() {
 
             launchSingleTop = true
         }
+
+        inicioCompletado = true
     }
 
-    // =====================================================
+    // =================================================
+    // ABRIR EVENTO DESDE NOTIFICACIÓN DE ANDROID
+    // =================================================
+
+    LaunchedEffect(
+        eventoDesdeNotificacion,
+        usuarioIdActivo,
+        inicioCompletado
+    ) {
+
+        val solicitud =
+            eventoDesdeNotificacion ?: return@LaunchedEffect
+
+        if (!inicioCompletado) {
+            return@LaunchedEffect
+        }
+
+        val (eventoId, propietarioId) = solicitud
+
+        val usuarioActual = usuarioIdActivo
+
+        // ESPERAR SI NO EXISTE UNA SESIÓN ACTIVA
+        if (
+            usuarioActual == null ||
+            usuarioActual <= 0
+        ) {
+            return@LaunchedEffect
+        }
+
+        // COMPROBAR QUE EL EVENTO SEA DEL USUARIO
+        if (
+            usuarioActual != propietarioId ||
+            eventoId <= 0
+        ) {
+
+            Log.w(
+                "AcaMeetNotificacion",
+                "Evento omitido: usuario no autorizado"
+            )
+
+            onNotificacionProcesada()
+
+            return@LaunchedEffect
+        }
+
+        try {
+
+            // VERIFICAR QUE EL EVENTO EXISTA EN ROOM
+            val evento = eventoRepository.obtenerEventoPorId(
+                id = eventoId,
+                usuarioId = usuarioActual
+            )
+
+            if (
+                evento != null &&
+                usuarioIdSesion.value == usuarioActual
+            ) {
+
+                pantallaInicialEvento = "detalle"
+
+                eventoIdSeleccionado = eventoId
+
+                navController.irAPantalla(
+                    Rutas.EVENTOS
+                )
+
+            } else {
+
+                Log.w(
+                    "AcaMeetNotificacion",
+                    "Evento inexistente o sesión modificada"
+                )
+            }
+
+        } catch (e: CancellationException) {
+
+            throw e
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "AcaMeetNotificacion",
+                "No se pudo abrir el evento",
+                e
+            )
+        }
+
+        onNotificacionProcesada()
+    }
+
+    // =================================================
     // TEMA CLARO Y OSCURO
-    // =====================================================
+    // =================================================
 
     val preferenciasCargadas = preferencias
 
@@ -378,17 +471,18 @@ fun AppNavigation() {
                 startDestination = Rutas.SPLASH
             ) {
 
-                // =================================================
-                // SPLASH
-                // =================================================
+                // =====================================
+                // PANTALLA SPLASH
+                // =====================================
 
                 composable(Rutas.SPLASH) {
+
                     SplashScreen()
                 }
 
-                // =================================================
-                // LOGIN
-                // =================================================
+                // =====================================
+                // INICIAR SESIÓN
+                // =====================================
 
                 composable(Rutas.LOGIN) {
 
@@ -403,14 +497,10 @@ fun AppNavigation() {
 
                                     try {
 
-                                        // Guardar la cuenta activa antes
-                                        // de mostrar las pantallas privadas.
-
                                         preferencesRepository
-                                            .guardarUsuarioSesion(usuarioId)
-
-                                        // Eliminar notificaciones visibles
-                                        // de una sesión anterior.
+                                            .guardarUsuarioSesion(
+                                                usuarioId
+                                            )
 
                                         notificationManager.cancelAll()
 
@@ -437,15 +527,13 @@ fun AppNavigation() {
                                             "No se pudo guardar la sesión",
                                             e
                                         )
-
-                                        // No ingresar a una sesión
-                                        // que no pudo registrarse.
                                     }
                                 }
                             }
                         },
 
                         onNavigateToRegister = {
+
                             navController.navigate(
                                 Rutas.REGISTER
                             )
@@ -453,9 +541,9 @@ fun AppNavigation() {
                     )
                 }
 
-                // =================================================
-                // REGISTRO
-                // =================================================
+                // =====================================
+                // REGISTRO DE USUARIOS
+                // =====================================
 
                 composable(Rutas.REGISTER) {
 
@@ -463,6 +551,7 @@ fun AppNavigation() {
                         viewModel = usuarioViewModel,
 
                         onRegisterSuccess = {
+
                             navController.popBackStack(
                                 Rutas.LOGIN,
                                 inclusive = false
@@ -470,6 +559,7 @@ fun AppNavigation() {
                         },
 
                         onNavigateToLogin = {
+
                             navController.popBackStack(
                                 Rutas.LOGIN,
                                 inclusive = false
@@ -478,9 +568,9 @@ fun AppNavigation() {
                     )
                 }
 
-                // =================================================
-                // INICIO CON CAMPANA DE NOTIFICACIONES
-                // =================================================
+                // =====================================
+                // PANTALLA DE INICIO
+                // =====================================
 
                 composable(Rutas.INICIO) {
 
@@ -494,23 +584,28 @@ fun AppNavigation() {
                             usuarioIdActivo = usuarioIdActivo,
 
                             onCategoriasClick = {
+
                                 navController.irAPantalla(
                                     Rutas.CATEGORIAS
                                 )
                             },
 
                             onEventosClick = {
+
                                 abrirListaEventos()
                             },
 
                             onConfiguracionClick = {
+
                                 navController.irAPantalla(
                                     Rutas.CONFIGURACION
                                 )
                             },
 
                             onCrearEventoClick = {
+
                                 pantallaInicialEvento = "crear"
+
                                 eventoIdSeleccionado = null
 
                                 navController.irAPantalla(
@@ -519,7 +614,9 @@ fun AppNavigation() {
                             },
 
                             onDetalleEventoClick = { id ->
+
                                 pantallaInicialEvento = "detalle"
+
                                 eventoIdSeleccionado = id
 
                                 navController.irAPantalla(
@@ -536,9 +633,9 @@ fun AppNavigation() {
                     }
                 }
 
-                // =================================================
-                // CATEGORÍAS Y LUGARES
-                // =================================================
+                // =====================================
+                // CATEGORÍAS
+                // =====================================
 
                 composable(Rutas.CATEGORIAS) {
 
@@ -551,16 +648,19 @@ fun AppNavigation() {
                             usuarioIdActivo = usuarioIdActivo,
 
                             onInicioClick = {
+
                                 navController.irAPantalla(
                                     Rutas.INICIO
                                 )
                             },
 
                             onEventosClick = {
+
                                 abrirListaEventos()
                             },
 
                             onConfiguracionClick = {
+
                                 navController.irAPantalla(
                                     Rutas.CONFIGURACION
                                 )
@@ -575,9 +675,9 @@ fun AppNavigation() {
                     }
                 }
 
-                // =================================================
+                // =====================================
                 // EVENTOS
-                // =================================================
+                // =====================================
 
                 composable(Rutas.EVENTOS) {
 
@@ -629,9 +729,9 @@ fun AppNavigation() {
                     }
                 }
 
-                // =================================================
+                // =====================================
                 // LUGARES
-                // =================================================
+                // =====================================
 
                 composable(Rutas.LUGARES) {
 
@@ -639,9 +739,11 @@ fun AppNavigation() {
 
                         LugarScreen(
                             viewModel = lugarViewModel,
+
                             usuarioIdActivo = usuarioIdActivo,
 
                             onInicioClick = {
+
                                 navController.irAPantalla(
                                     Rutas.INICIO
                                 )
@@ -656,9 +758,9 @@ fun AppNavigation() {
                     }
                 }
 
-                // =================================================
+                // =====================================
                 // CONFIGURACIÓN
-                // =================================================
+                // =====================================
 
                 composable(Rutas.CONFIGURACION) {
 
@@ -675,22 +777,15 @@ fun AppNavigation() {
 
                                     try {
 
-                                        // 1. Cerrar la sesión persistente.
                                         preferencesRepository
                                             .cerrarSesion()
 
-                                        // 2. Eliminar las notificaciones
-                                        // visibles en Android.
-                                        // No elimina el historial de Room.
                                         notificationManager.cancelAll()
 
-                                        // 3. Limpiar usuario activo.
                                         usuarioIdSesion.value = null
 
-                                        // 4. Limpiar navegación y filtros.
                                         limpiarEstadoSesion()
 
-                                        // 5. Volver al inicio de sesión.
                                         navController.navigate(
                                             Rutas.LOGIN
                                         ) {
@@ -712,26 +807,26 @@ fun AppNavigation() {
                                             "Error al cerrar sesión",
                                             e
                                         )
-
-                                        // Se conserva la sesión si
-                                        // no se pudo cerrar correctamente.
                                     }
                                 }
                             },
 
                             onInicioClick = {
+
                                 navController.irAPantalla(
                                     Rutas.INICIO
                                 )
                             },
 
                             onCategoriasClick = {
+
                                 navController.irAPantalla(
                                     Rutas.CATEGORIAS
                                 )
                             },
 
                             onEventosClick = {
+
                                 abrirListaEventos()
                             }
                         )

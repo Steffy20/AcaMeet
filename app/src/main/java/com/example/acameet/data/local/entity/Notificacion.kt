@@ -13,6 +13,7 @@ import androidx.room.PrimaryKey
     ]
 )
 data class Notificacion(
+
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 

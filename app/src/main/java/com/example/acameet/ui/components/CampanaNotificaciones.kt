@@ -9,17 +9,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
 
 import androidx.compose.material3.*
 
 import androidx.compose.runtime.*
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,11 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-import com.example.acameet.data.local.dao.NotificacionDao
 import com.example.acameet.data.local.entity.Notificacion
-
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,54 +43,22 @@ private val AzulNotificaciones = Color(0xFF0798F2)
 
 @Composable
 fun CampanaNotificaciones(
-    usuarioId: Int,
-    notificacionDao: NotificacionDao,
-    onDetalleEventoClick: (Int) -> Unit
+    notificaciones: List<Notificacion>,
+    pendientes: Int,
+    onMarcarTodas: () -> Unit,
+    onMarcarLeida: (Int) -> Unit,
+    onEliminar: (Int) -> Unit,
+    onDetalleEventoClick: (Int) -> Unit,
+    onEliminarTodas: () -> Unit = {}
 ) {
-
-    val scope = rememberCoroutineScope()
 
     var mostrarHistorial by remember {
         mutableStateOf(false)
     }
 
-    // =====================================================
-    // OBTENER NOTIFICACIONES DEL USUARIO ACTIVO
-    // =====================================================
-
-    val flujoNotificaciones = remember(
-        usuarioId,
-        notificacionDao
-    ) {
-        if (usuarioId > 0) {
-            notificacionDao.obtenerNotificaciones(usuarioId)
-        } else {
-            flowOf(emptyList<Notificacion>())
-        }
+    var confirmarEliminarTodas by remember {
+        mutableStateOf(false)
     }
-
-    // =====================================================
-    // CONTAR NOTIFICACIONES SIN LEER
-    // =====================================================
-
-    val flujoPendientes = remember(
-        usuarioId,
-        notificacionDao
-    ) {
-        if (usuarioId > 0) {
-            notificacionDao.contarNoLeidas(usuarioId)
-        } else {
-            flowOf(0)
-        }
-    }
-
-    val notificaciones by flujoNotificaciones.collectAsState(
-        initial = emptyList()
-    )
-
-    val pendientes by flujoPendientes.collectAsState(
-        initial = 0
-    )
 
     // =====================================================
     // BOTÓN DE CAMPANA CON CONTADOR
@@ -129,7 +94,7 @@ fun CampanaNotificaciones(
 
             Icon(
                 imageVector = Icons.Default.Notifications,
-                contentDescription = "Notificaciones",
+                contentDescription = "Abrir notificaciones",
                 tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(26.dp)
             )
@@ -137,7 +102,7 @@ fun CampanaNotificaciones(
     }
 
     // =====================================================
-    // VENTANA DEL HISTORIAL DE NOTIFICACIONES
+    // HISTORIAL DE NOTIFICACIONES
     // =====================================================
 
     if (mostrarHistorial) {
@@ -155,11 +120,8 @@ fun CampanaNotificaciones(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-
                     verticalAlignment = Alignment.CenterVertically,
-
-                    horizontalArrangement =
-                        Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
 
                     Row(
@@ -201,46 +163,61 @@ fun CampanaNotificaciones(
                     modifier = Modifier.fillMaxWidth()
                 ) {
 
-                    // =================================================
-                    // CONTADOR Y MARCAR TODAS COMO LEÍDAS
-                    // =================================================
+                    // =========================================
+                    // CONTADOR Y ACCIONES GENERALES
+                    // =========================================
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
+                    Text(
+                        text = if (pendientes == 1) {
+                            "1 notificación sin leer"
+                        } else {
+                            "$pendientes notificaciones sin leer"
+                        },
+                        color = AzulNotificaciones,
+                        fontSize = 12.sp
+                    )
 
-                        verticalAlignment = Alignment.CenterVertically,
+                    if (notificaciones.isNotEmpty()) {
 
-                        horizontalArrangement =
-                            Arrangement.SpaceBetween
-                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
 
-                        Text(
-                            text = if (pendientes == 1) {
-                                "1 sin leer"
+                            if (pendientes > 0) {
+
+                                TextButton(
+                                    onClick = onMarcarTodas
+                                ) {
+
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+
+                                    Spacer(Modifier.width(4.dp))
+
+                                    Text(
+                                        text = "Leer todas",
+                                        fontSize = 11.sp
+                                    )
+                                }
+
                             } else {
-                                "$pendientes sin leer"
-                            },
-                            color = AzulNotificaciones,
-                            fontSize = 12.sp
-                        )
 
-                        if (pendientes > 0) {
+                                Spacer(Modifier.width(1.dp))
+                            }
 
                             TextButton(
                                 onClick = {
-
-                                    scope.launch {
-
-                                        notificacionDao
-                                            .marcarTodasComoLeidas(
-                                                usuarioId
-                                            )
-                                    }
+                                    confirmarEliminarTodas = true
                                 }
                             ) {
 
                                 Icon(
-                                    imageVector = Icons.Default.Check,
+                                    imageVector = Icons.Default.Delete,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -248,8 +225,9 @@ fun CampanaNotificaciones(
                                 Spacer(Modifier.width(4.dp))
 
                                 Text(
-                                    text = "Leer todas",
-                                    fontSize = 11.sp
+                                    text = "Eliminar todas",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -259,9 +237,9 @@ fun CampanaNotificaciones(
 
                     Spacer(Modifier.height(12.dp))
 
-                    // =================================================
-                    // CUANDO NO EXISTEN NOTIFICACIONES
-                    // =================================================
+                    // =========================================
+                    // HISTORIAL VACÍO
+                    // =========================================
 
                     if (notificaciones.isEmpty()) {
 
@@ -269,19 +247,13 @@ fun CampanaNotificaciones(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 35.dp),
-
-                            horizontalAlignment =
-                                Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
 
                             Icon(
-                                imageVector =
-                                    Icons.Default.NotificationsOff,
-
+                                imageVector = Icons.Default.NotificationsOff,
                                 contentDescription = null,
-
                                 tint = AzulNotificaciones,
-
                                 modifier = Modifier.size(48.dp)
                             )
 
@@ -297,24 +269,19 @@ fun CampanaNotificaciones(
                             Text(
                                 text = "Los recordatorios de tus eventos aparecerán aquí.",
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme
-                                    .onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
                     } else {
 
-                        // =================================================
+                        // =====================================
                         // LISTA DE NOTIFICACIONES
-                        // =================================================
+                        // =====================================
 
                         LazyColumn(
-                            modifier = Modifier.heightIn(
-                                max = 420.dp
-                            ),
-
-                            verticalArrangement =
-                                Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.heightIn(max = 420.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
 
                             items(
@@ -327,13 +294,8 @@ fun CampanaNotificaciones(
 
                                     onAbrirEvento = {
 
-                                        scope.launch {
-
-                                            notificacionDao
-                                                .marcarComoLeida(
-                                                    notificacion.id,
-                                                    usuarioId
-                                                )
+                                        if (!notificacion.leida) {
+                                            onMarcarLeida(notificacion.id)
                                         }
 
                                         mostrarHistorial = false
@@ -344,27 +306,11 @@ fun CampanaNotificaciones(
                                     },
 
                                     onMarcarLeida = {
-
-                                        scope.launch {
-
-                                            notificacionDao
-                                                .marcarComoLeida(
-                                                    notificacion.id,
-                                                    usuarioId
-                                                )
-                                        }
+                                        onMarcarLeida(notificacion.id)
                                     },
 
                                     onEliminar = {
-
-                                        scope.launch {
-
-                                            notificacionDao
-                                                .eliminarNotificacion(
-                                                    notificacion.id,
-                                                    usuarioId
-                                                )
-                                        }
+                                        onEliminar(notificacion.id)
                                     }
                                 )
                             }
@@ -380,8 +326,56 @@ fun CampanaNotificaciones(
                         mostrarHistorial = false
                     }
                 ) {
-
                     Text("Cerrar")
+                }
+            }
+        )
+    }
+
+    // =====================================================
+    // CONFIRMACIÓN PARA ELIMINAR TODO EL HISTORIAL
+    // =====================================================
+
+    if (confirmarEliminarTodas) {
+
+        AlertDialog(
+            onDismissRequest = {
+                confirmarEliminarTodas = false
+            },
+
+            title = {
+                Text("Eliminar notificaciones")
+            },
+
+            text = {
+                Text(
+                    "¿Estás seguro de que deseas eliminar todas tus notificaciones? Esta acción no se puede deshacer."
+                )
+            },
+
+            confirmButton = {
+
+                TextButton(
+                    onClick = {
+                        onEliminarTodas()
+                        confirmarEliminarTodas = false
+                    }
+                ) {
+                    Text(
+                        text = "Eliminar",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+
+            dismissButton = {
+
+                TextButton(
+                    onClick = {
+                        confirmarEliminarTodas = false
+                    }
+                ) {
+                    Text("Cancelar")
                 }
             }
         )
@@ -432,9 +426,8 @@ private fun TarjetaNotificacion(
         ),
 
         border = BorderStroke(
-            1.dp,
-
-            AzulNotificaciones.copy(
+            width = 1.dp,
+            color = AzulNotificaciones.copy(
                 alpha = if (notificacion.leida) {
                     0.12f
                 } else {
@@ -456,10 +449,7 @@ private fun TarjetaNotificacion(
 
                 Surface(
                     shape = CircleShape,
-
-                    color = AzulNotificaciones.copy(
-                        alpha = 0.13f
-                    )
+                    color = AzulNotificaciones.copy(alpha = 0.13f)
                 ) {
 
                     Icon(
@@ -509,7 +499,7 @@ private fun TarjetaNotificacion(
                     )
                 }
 
-                // PUNTO AZUL PARA NOTIFICACIONES SIN LEER
+                // INDICADOR DE NOTIFICACIÓN NO LEÍDA
                 if (!notificacion.leida) {
 
                     Surface(
@@ -526,19 +516,16 @@ private fun TarjetaNotificacion(
                 color = colores.outlineVariant
             )
 
-            // =================================================
-            // ACCIONES DE LA NOTIFICACIÓN
-            // =================================================
+            // =========================================
+            // ACCIONES DE CADA NOTIFICACIÓN
+            // =========================================
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-
                 verticalAlignment = Alignment.CenterVertically,
-
                 horizontalArrangement = Arrangement.End
             ) {
 
-                // MARCAR COMO LEÍDA
                 if (!notificacion.leida) {
 
                     IconButton(
@@ -547,20 +534,14 @@ private fun TarjetaNotificacion(
                     ) {
 
                         Icon(
-                            imageVector =
-                                Icons.Default.CheckCircle,
-
-                            contentDescription =
-                                "Marcar como leída",
-
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Marcar como leída",
                             tint = AzulNotificaciones,
-
                             modifier = Modifier.size(19.dp)
                         )
                     }
                 }
 
-                // ELIMINAR NOTIFICACIÓN
                 IconButton(
                     onClick = onEliminar,
                     modifier = Modifier.size(36.dp)
@@ -568,17 +549,12 @@ private fun TarjetaNotificacion(
 
                     Icon(
                         imageVector = Icons.Default.Delete,
-
-                        contentDescription =
-                            "Eliminar notificación",
-
+                        contentDescription = "Eliminar notificación",
                         tint = colores.error,
-
                         modifier = Modifier.size(19.dp)
                     )
                 }
 
-                // ABRIR DETALLE DEL EVENTO
                 TextButton(
                     onClick = onAbrirEvento
                 ) {

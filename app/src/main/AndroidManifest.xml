@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- PERMISO PARA INTERNET -->
     <uses-permission
@@ -45,7 +44,7 @@
 
         </activity>
 
-        <!-- RECEPTOR DE NOTIFICACIONES DE EVENTOS -->
+        <!-- RECEPTOR DE NOTIFICACIONES -->
         <receiver
             android:name=".util.NotificacionReceiver"
             android:enabled="true"

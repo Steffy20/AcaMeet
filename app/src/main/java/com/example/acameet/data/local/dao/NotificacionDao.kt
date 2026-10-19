@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NotificacionDao {
 
+    // =====================================================
     // OBTENER NOTIFICACIONES DEL USUARIO
+    // =====================================================
+
     @Query(
         """
         SELECT * FROM notificaciones
@@ -23,31 +26,40 @@ interface NotificacionDao {
         usuarioId: Int
     ): Flow<List<Notificacion>>
 
+    // =====================================================
     // CONTAR NOTIFICACIONES SIN LEER
+    // =====================================================
+
     @Query(
         """
         SELECT COUNT(*) FROM notificaciones
         WHERE usuarioId = :usuarioId
-        AND leida = 0
+          AND leida = 0
         """
     )
     fun contarNoLeidas(
         usuarioId: Int
     ): Flow<Int>
 
+    // =====================================================
     // GUARDAR NOTIFICACIÓN
+    // =====================================================
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertarNotificacion(
         notificacion: Notificacion
     ): Long
 
+    // =====================================================
     // MARCAR UNA NOTIFICACIÓN COMO LEÍDA
+    // =====================================================
+
     @Query(
         """
         UPDATE notificaciones
         SET leida = 1
         WHERE id = :notificacionId
-        AND usuarioId = :usuarioId
+          AND usuarioId = :usuarioId
         """
     )
     suspend fun marcarComoLeida(
@@ -55,25 +67,31 @@ interface NotificacionDao {
         usuarioId: Int
     ): Int
 
+    // =====================================================
     // MARCAR TODAS COMO LEÍDAS
+    // =====================================================
+
     @Query(
         """
         UPDATE notificaciones
         SET leida = 1
         WHERE usuarioId = :usuarioId
-        AND leida = 0
+          AND leida = 0
         """
     )
     suspend fun marcarTodasComoLeidas(
         usuarioId: Int
     ): Int
 
+    // =====================================================
     // ELIMINAR UNA NOTIFICACIÓN
+    // =====================================================
+
     @Query(
         """
         DELETE FROM notificaciones
         WHERE id = :notificacionId
-        AND usuarioId = :usuarioId
+          AND usuarioId = :usuarioId
         """
     )
     suspend fun eliminarNotificacion(
@@ -81,7 +99,10 @@ interface NotificacionDao {
         usuarioId: Int
     ): Int
 
+    // =====================================================
     // ELIMINAR TODAS LAS NOTIFICACIONES DEL USUARIO
+    // =====================================================
+
     @Query(
         """
         DELETE FROM notificaciones

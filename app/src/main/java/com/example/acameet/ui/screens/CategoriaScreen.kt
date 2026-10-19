@@ -39,6 +39,10 @@ private enum class SeccionCL {
     LUGARES
 }
 
+// =====================================================
+// ENTRADA DE LA PANTALLA
+// =====================================================
+
 @Composable
 fun CategoriaScreen(
     viewModel: CategoriaViewModel,
@@ -48,8 +52,34 @@ fun CategoriaScreen(
     onConfiguracionClick: () -> Unit = {},
     usuarioIdActivo: Int? = null
 ) {
-    val categoriaState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lugares by lugarViewModel.lugares.collectAsStateWithLifecycle()
+    CategoriaRoute(
+        viewModel = viewModel,
+        lugarViewModel = lugarViewModel,
+        onInicioClick = onInicioClick,
+        onEventosClick = onEventosClick,
+        onConfiguracionClick = onConfiguracionClick,
+        usuarioIdActivo = usuarioIdActivo
+    )
+}
+
+// =====================================================
+// ROUTE: ESTADO Y LÓGICA
+// =====================================================
+
+@Composable
+fun CategoriaRoute(
+    viewModel: CategoriaViewModel,
+    lugarViewModel: LugarViewModel,
+    onInicioClick: () -> Unit = {},
+    onEventosClick: () -> Unit = {},
+    onConfiguracionClick: () -> Unit = {},
+    usuarioIdActivo: Int? = null
+) {
+    val categoriaState by viewModel.uiState
+        .collectAsStateWithLifecycle()
+
+    val lugares by lugarViewModel.lugares
+        .collectAsStateWithLifecycle()
 
     val categorias = when (val estado = categoriaState) {
         is CategoriaUiState.Success -> estado.categorias
@@ -59,35 +89,43 @@ fun CategoriaScreen(
     var seccion by remember {
         mutableStateOf(SeccionCL.CATEGORIAS)
     }
+
     var formulario by remember {
         mutableStateOf(false)
     }
+
     var categoriaEditar by remember {
         mutableStateOf<Categoria?>(null)
     }
+
     var categoriaEliminar by remember {
         mutableStateOf<Categoria?>(null)
     }
+
     var lugarEditar by remember {
         mutableStateOf<Lugar?>(null)
     }
+
     var lugarEliminar by remember {
         mutableStateOf<Lugar?>(null)
     }
+
     var mensaje by remember {
         mutableStateOf<String?>(null)
     }
+
     var guardandoLugar by remember {
         mutableStateOf(false)
     }
+
     var eliminandoLugar by remember {
         mutableStateOf(false)
     }
 
     val procesandoCategoria =
-        (categoriaState as? CategoriaUiState.Success)?.procesando == true
+        (categoriaState as? CategoriaUiState.Success)
+            ?.procesando == true
 
-    // Limpiar formularios al cambiar de cuenta.
     LaunchedEffect(usuarioIdActivo) {
         formulario = false
         categoriaEditar = null
@@ -100,11 +138,11 @@ fun CategoriaScreen(
         seccion = SeccionCL.CATEGORIAS
     }
 
-    // Escuchar mensajes del ViewModel de categorías.
     LaunchedEffect(viewModel, usuarioIdActivo) {
         if (usuarioIdActivo != null && usuarioIdActivo > 0) {
             viewModel.mensajes.collect { resultado ->
                 mensaje = resultado.texto
+
                 if (resultado.exitoso) {
                     formulario = false
                     categoriaEditar = null
@@ -114,6 +152,258 @@ fun CategoriaScreen(
         }
     }
 
+    CategoriaContent(
+        categoriaState = categoriaState,
+        categorias = categorias,
+        lugares = lugares,
+        seccion = seccion,
+        procesandoCategoria = procesandoCategoria,
+        guardandoLugar = guardandoLugar,
+        onCambiarSeccion = {
+            seccion = it
+            formulario = false
+            categoriaEditar = null
+            lugarEditar = null
+        },
+        onAgregarCategoria = {
+            categoriaEditar = null
+            formulario = true
+        },
+        onEditarCategoria = {
+            categoriaEditar = it
+            formulario = true
+        },
+        onEliminarCategoria = {
+            categoriaEliminar = it
+        },
+        onAgregarLugar = {
+            lugarEditar = null
+            formulario = true
+        },
+        onEditarLugar = {
+            lugarEditar = it
+            formulario = true
+        },
+        onEliminarLugar = {
+            lugarEliminar = it
+        },
+        onInicioClick = onInicioClick,
+        onEventosClick = onEventosClick,
+        onConfiguracionClick = onConfiguracionClick
+    )
+
+    // =================================================
+    // REGISTRAR O EDITAR CATEGORÍA
+    // =================================================
+
+    if (formulario && seccion == SeccionCL.CATEGORIAS) {
+        DialogoNombreCL(
+            titulo = if (categoriaEditar == null) {
+                "Nueva categoría"
+            } else {
+                "Editar categoría"
+            },
+            etiqueta = "Nombre de la categoría",
+            nombreInicial = categoriaEditar?.nombre ?: "",
+            nombresExistentes = categorias
+                .filter { it.id != categoriaEditar?.id }
+                .map { it.nombre },
+            procesando = procesandoCategoria,
+            onCancelar = {
+                if (!procesandoCategoria) {
+                    formulario = false
+                    categoriaEditar = null
+                }
+            },
+            onGuardar = { nombre ->
+                if (!procesandoCategoria) {
+                    val actual = categoriaEditar
+
+                    if (actual == null) {
+                        viewModel.registrarCategoria(nombre)
+                    } else {
+                        viewModel.actualizarCategoria(
+                            categoria = actual,
+                            nuevoNombre = nombre
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    // =================================================
+    // REGISTRAR O EDITAR LUGAR
+    // =================================================
+
+    if (formulario && seccion == SeccionCL.LUGARES) {
+        DialogoNombreCL(
+            titulo = if (lugarEditar == null) {
+                "Nuevo lugar"
+            } else {
+                "Editar lugar"
+            },
+            etiqueta = "Nombre del lugar",
+            nombreInicial = lugarEditar?.nombre ?: "",
+            nombresExistentes = lugares
+                .filter { it.id != lugarEditar?.id }
+                .map { it.nombre },
+            procesando = guardandoLugar,
+            onCancelar = {
+                if (!guardandoLugar) {
+                    formulario = false
+                    lugarEditar = null
+                }
+            },
+            onGuardar = { nombre ->
+                if (!guardandoLugar) {
+                    guardandoLugar = true
+
+                    val actual = lugarEditar
+                    val usuarioOperacion = usuarioIdActivo
+
+                    val callback: (Boolean, String) -> Unit =
+                        { exitoso, texto ->
+                            if (usuarioOperacion == usuarioIdActivo) {
+                                guardandoLugar = false
+                                mensaje = texto
+
+                                if (exitoso) {
+                                    formulario = false
+                                    lugarEditar = null
+                                }
+                            }
+                        }
+
+                    if (actual == null) {
+                        lugarViewModel.registrarLugar(
+                            Lugar(nombre = nombre),
+                            callback
+                        )
+                    } else {
+                        lugarViewModel.actualizarLugar(
+                            actual.copy(nombre = nombre),
+                            callback
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    // =================================================
+    // ELIMINAR CATEGORÍA
+    // =================================================
+
+    categoriaEliminar?.let { categoria ->
+        DialogoEliminarCL(
+            tipo = "categoría",
+            nombre = categoria.nombre,
+            procesando = procesandoCategoria,
+            onCancelar = {
+                if (!procesandoCategoria) {
+                    categoriaEliminar = null
+                }
+            },
+            onConfirmar = {
+                if (!procesandoCategoria) {
+                    viewModel.eliminarCategoria(categoria)
+                }
+            }
+        )
+    }
+
+    // =================================================
+    // ELIMINAR LUGAR
+    // =================================================
+
+    lugarEliminar?.let { lugar ->
+        DialogoEliminarCL(
+            tipo = "lugar",
+            nombre = lugar.nombre,
+            procesando = eliminandoLugar,
+            onCancelar = {
+                if (!eliminandoLugar) {
+                    lugarEliminar = null
+                }
+            },
+            onConfirmar = {
+                if (!eliminandoLugar) {
+                    eliminandoLugar = true
+
+                    val usuarioOperacion = usuarioIdActivo
+
+                    lugarViewModel.eliminarLugar(lugar) {
+                            exitoso, texto ->
+
+                        if (usuarioOperacion == usuarioIdActivo) {
+                            eliminandoLugar = false
+                            mensaje = texto
+
+                            if (exitoso) {
+                                lugarEliminar = null
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // =================================================
+    // MENSAJES
+    // =================================================
+
+    mensaje?.let { texto ->
+        AlertDialog(
+            onDismissRequest = {
+                mensaje = null
+            },
+            title = {
+                Text("AcaMeet")
+            },
+            text = {
+                Text(texto)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mensaje = null
+                    }
+                ) {
+                    Text(
+                        "Aceptar",
+                        color = AzulCL
+                    )
+                }
+            }
+        )
+    }
+}
+
+// =====================================================
+// CONTENT: INTERFAZ SIN VIEWMODELS
+// =====================================================
+
+@Composable
+private fun CategoriaContent(
+    categoriaState: CategoriaUiState,
+    categorias: List<Categoria>,
+    lugares: List<Lugar>,
+    seccion: SeccionCL,
+    procesandoCategoria: Boolean,
+    guardandoLugar: Boolean,
+    onCambiarSeccion: (SeccionCL) -> Unit,
+    onAgregarCategoria: () -> Unit,
+    onEditarCategoria: (Categoria) -> Unit,
+    onEliminarCategoria: (Categoria) -> Unit,
+    onAgregarLugar: () -> Unit,
+    onEditarLugar: (Lugar) -> Unit,
+    onEliminarLugar: (Lugar) -> Unit,
+    onInicioClick: () -> Unit,
+    onEventosClick: () -> Unit,
+    onConfiguracionClick: () -> Unit
+) {
     val colores = MaterialTheme.colorScheme
     val esOscuro = colores.background.red < 0.5f
 
@@ -195,9 +485,7 @@ fun CategoriaScreen(
                     seleccionado = seccion == SeccionCL.CATEGORIAS,
                     modifier = Modifier.weight(1f),
                     onClick = {
-                        seccion = SeccionCL.CATEGORIAS
-                        formulario = false
-                        lugarEditar = null
+                        onCambiarSeccion(SeccionCL.CATEGORIAS)
                     }
                 )
 
@@ -207,9 +495,7 @@ fun CategoriaScreen(
                     seleccionado = seccion == SeccionCL.LUGARES,
                     modifier = Modifier.weight(1f),
                     onClick = {
-                        seccion = SeccionCL.LUGARES
-                        formulario = false
-                        categoriaEditar = null
+                        onCambiarSeccion(SeccionCL.LUGARES)
                     }
                 )
             }
@@ -217,7 +503,9 @@ fun CategoriaScreen(
             Spacer(Modifier.height(24.dp))
 
             when (seccion) {
+
                 SeccionCL.CATEGORIAS -> {
+
                     Text(
                         text = "Categorías registradas",
                         color = colores.onBackground,
@@ -228,6 +516,7 @@ fun CategoriaScreen(
                     Spacer(Modifier.height(12.dp))
 
                     when (val estado = categoriaState) {
+
                         is CategoriaUiState.Loading -> {
                             Box(
                                 modifier = Modifier
@@ -235,7 +524,9 @@ fun CategoriaScreen(
                                     .fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = AzulCL)
+                                CircularProgressIndicator(
+                                    color = AzulCL
+                                )
                             }
                         }
 
@@ -254,12 +545,16 @@ fun CategoriaScreen(
                         }
 
                         is CategoriaUiState.Success -> {
+
                             if (categorias.isEmpty()) {
+
                                 EstadoVacioCL(
                                     texto = "No hay categorías registradas",
                                     modifier = Modifier.weight(1f)
                                 )
+
                             } else {
+
                                 LazyColumn(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement =
@@ -271,15 +566,15 @@ fun CategoriaScreen(
                                         items = categorias,
                                         key = { it.id }
                                     ) { categoria ->
+
                                         TarjetaRegistroCL(
                                             nombre = categoria.nombre,
                                             icono = Icons.Default.Category,
                                             onEditar = {
-                                                categoriaEditar = categoria
-                                                formulario = true
+                                                onEditarCategoria(categoria)
                                             },
                                             onEliminar = {
-                                                categoriaEliminar = categoria
+                                                onEliminarCategoria(categoria)
                                             }
                                         )
                                     }
@@ -291,10 +586,7 @@ fun CategoriaScreen(
                     Spacer(Modifier.height(12.dp))
 
                     Button(
-                        onClick = {
-                            categoriaEditar = null
-                            formulario = true
-                        },
+                        onClick = onAgregarCategoria,
                         enabled = !procesandoCategoria,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -306,12 +598,15 @@ fun CategoriaScreen(
                             imageVector = Icons.Default.Add,
                             contentDescription = null
                         )
+
                         Spacer(Modifier.width(8.dp))
+
                         Text("Agregar categoría")
                     }
                 }
 
                 SeccionCL.LUGARES -> {
+
                     Text(
                         text = "Lugares registrados",
                         color = colores.onBackground,
@@ -322,11 +617,14 @@ fun CategoriaScreen(
                     Spacer(Modifier.height(12.dp))
 
                     if (lugares.isEmpty()) {
+
                         EstadoVacioCL(
                             texto = "No hay lugares registrados",
                             modifier = Modifier.weight(1f)
                         )
+
                     } else {
+
                         LazyColumn(
                             modifier = Modifier.weight(1f),
                             verticalArrangement =
@@ -338,15 +636,15 @@ fun CategoriaScreen(
                                 items = lugares,
                                 key = { it.id }
                             ) { lugar ->
+
                                 TarjetaRegistroCL(
                                     nombre = lugar.nombre,
                                     icono = Icons.Default.LocationOn,
                                     onEditar = {
-                                        lugarEditar = lugar
-                                        formulario = true
+                                        onEditarLugar(lugar)
                                     },
                                     onEliminar = {
-                                        lugarEliminar = lugar
+                                        onEliminarLugar(lugar)
                                     }
                                 )
                             }
@@ -356,10 +654,7 @@ fun CategoriaScreen(
                     Spacer(Modifier.height(12.dp))
 
                     Button(
-                        onClick = {
-                            lugarEditar = null
-                            formulario = true
-                        },
+                        onClick = onAgregarLugar,
                         enabled = !guardandoLugar,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -371,7 +666,9 @@ fun CategoriaScreen(
                             imageVector = Icons.Default.Add,
                             contentDescription = null
                         )
+
                         Spacer(Modifier.width(8.dp))
+
                         Text("Agregar lugar")
                     }
                 }
@@ -380,174 +677,11 @@ fun CategoriaScreen(
             Spacer(Modifier.height(12.dp))
         }
     }
-
-    // Formulario para registrar o editar categoría.
-    if (formulario && seccion == SeccionCL.CATEGORIAS) {
-        DialogoNombreCL(
-            titulo = if (categoriaEditar == null) {
-                "Nueva categoría"
-            } else {
-                "Editar categoría"
-            },
-            etiqueta = "Nombre de la categoría",
-            nombreInicial = categoriaEditar?.nombre ?: "",
-            nombresExistentes = categorias
-                .filter { it.id != categoriaEditar?.id }
-                .map { it.nombre },
-            procesando = procesandoCategoria,
-            onCancelar = {
-                if (!procesandoCategoria) {
-                    formulario = false
-                    categoriaEditar = null
-                }
-            },
-            onGuardar = { nombre ->
-                if (!procesandoCategoria) {
-                    val actual = categoriaEditar
-                    if (actual == null) {
-                        viewModel.registrarCategoria(nombre)
-                    } else {
-                        viewModel.actualizarCategoria(
-                            categoria = actual,
-                            nuevoNombre = nombre
-                        )
-                    }
-                }
-            }
-        )
-    }
-
-    // Formulario para registrar o editar lugar.
-    if (formulario && seccion == SeccionCL.LUGARES) {
-        DialogoNombreCL(
-            titulo = if (lugarEditar == null) {
-                "Nuevo lugar"
-            } else {
-                "Editar lugar"
-            },
-            etiqueta = "Nombre del lugar",
-            nombreInicial = lugarEditar?.nombre ?: "",
-            nombresExistentes = lugares
-                .filter { it.id != lugarEditar?.id }
-                .map { it.nombre },
-            procesando = guardandoLugar,
-            onCancelar = {
-                if (!guardandoLugar) {
-                    formulario = false
-                    lugarEditar = null
-                }
-            },
-            onGuardar = { nombre ->
-                if (!guardandoLugar) {
-                    guardandoLugar = true
-                    val actual = lugarEditar
-                    val usuarioOperacion = usuarioIdActivo
-
-                    val callback: (Boolean, String) -> Unit =
-                        { exitoso, texto ->
-                            if (usuarioOperacion == usuarioIdActivo) {
-                                guardandoLugar = false
-                                mensaje = texto
-                                if (exitoso) {
-                                    formulario = false
-                                    lugarEditar = null
-                                }
-                            }
-                        }
-
-                    if (actual == null) {
-                        lugarViewModel.registrarLugar(
-                            Lugar(nombre = nombre),
-                            callback
-                        )
-                    } else {
-                        lugarViewModel.actualizarLugar(
-                            actual.copy(nombre = nombre),
-                            callback
-                        )
-                    }
-                }
-            }
-        )
-    }
-
-    // Confirmación de eliminación de categoría.
-    categoriaEliminar?.let { categoria ->
-        DialogoEliminarCL(
-            tipo = "categoría",
-            nombre = categoria.nombre,
-            procesando = procesandoCategoria,
-            onCancelar = {
-                if (!procesandoCategoria) {
-                    categoriaEliminar = null
-                }
-            },
-            onConfirmar = {
-                if (!procesandoCategoria) {
-                    viewModel.eliminarCategoria(categoria)
-                }
-            }
-        )
-    }
-
-    // Confirmación de eliminación de lugar.
-    lugarEliminar?.let { lugar ->
-        DialogoEliminarCL(
-            tipo = "lugar",
-            nombre = lugar.nombre,
-            procesando = eliminandoLugar,
-            onCancelar = {
-                if (!eliminandoLugar) {
-                    lugarEliminar = null
-                }
-            },
-            onConfirmar = {
-                if (!eliminandoLugar) {
-                    eliminandoLugar = true
-                    val usuarioOperacion = usuarioIdActivo
-
-                    lugarViewModel.eliminarLugar(lugar) {
-                            exitoso, texto ->
-                        if (usuarioOperacion == usuarioIdActivo) {
-                            eliminandoLugar = false
-                            mensaje = texto
-                            if (exitoso) {
-                                lugarEliminar = null
-                            }
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    // Mensajes de confirmación y errores.
-    mensaje?.let { texto ->
-        AlertDialog(
-            onDismissRequest = {
-                mensaje = null
-            },
-            title = {
-                Text("AcaMeet")
-            },
-            text = {
-                Text(texto)
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mensaje = null
-                    }
-                ) {
-                    Text(
-                        "Aceptar",
-                        color = AzulCL
-                    )
-                }
-            }
-        )
-    }
 }
+
+// =====================================================
+// BOTÓN DE SECCIÓN
+// =====================================================
 
 @Composable
 private fun BotonSeccionCL(
@@ -581,7 +715,9 @@ private fun BotonSeccionCL(
             contentDescription = null,
             modifier = Modifier.size(18.dp)
         )
+
         Spacer(Modifier.width(5.dp))
+
         Text(
             text = texto,
             fontSize = 12.sp,
@@ -589,6 +725,10 @@ private fun BotonSeccionCL(
         )
     }
 }
+
+// =====================================================
+// TARJETA DE REGISTRO
+// =====================================================
 
 @Composable
 private fun TarjetaRegistroCL(
@@ -652,23 +792,29 @@ private fun TarjetaRegistroCL(
     }
 }
 
+// =====================================================
+// ESTADO VACÍO
+// =====================================================
+
 @Composable
 private fun EstadoVacioCL(
     texto: String,
     modifier: Modifier = Modifier
 ) {
-    val colores = MaterialTheme.colorScheme
-
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = texto,
-            color = colores.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
+
+// =====================================================
+// DIÁLOGO PARA REGISTRAR O EDITAR
+// =====================================================
 
 @Composable
 private fun DialogoNombreCL(
@@ -715,6 +861,7 @@ private fun DialogoNombreCL(
 
                 error?.let {
                     Spacer(Modifier.height(8.dp))
+
                     Text(
                         text = it,
                         color = MaterialTheme.colorScheme.error,
@@ -771,6 +918,10 @@ private fun DialogoNombreCL(
         }
     )
 }
+
+// =====================================================
+// DIÁLOGO PARA ELIMINAR
+// =====================================================
 
 @Composable
 private fun DialogoEliminarCL(
